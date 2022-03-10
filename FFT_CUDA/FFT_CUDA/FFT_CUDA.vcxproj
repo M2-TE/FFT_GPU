@@ -11,9 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\fft_gpu.cu">
-      <FileType>Document</FileType>
-    </CudaCompile>
+    <CudaCompile Include="src\revision.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{74B36206-F8A7-4F1F-BEDA-DB4915B2B789}</ProjectGuid>
