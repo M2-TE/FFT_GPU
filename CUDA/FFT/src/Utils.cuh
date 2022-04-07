@@ -1,5 +1,12 @@
 #pragma once
 
+// Gets rid of false flags with IntelliSense
+#ifdef __CUDACC__
+	#define KERNEL_GRID(grid, block) <<< grid, block >>>
+#else
+	#define KERNEL_GRID(grid, block)
+#endif
+
 void PrintDeviceInfo()
 {
 	int nDevices;

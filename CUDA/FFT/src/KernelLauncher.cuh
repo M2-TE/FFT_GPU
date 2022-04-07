@@ -1,71 +1,56 @@
 #pragma once
 
-// no need to reinclude these
-//#include <device_launch_parameters.h>
-//#include <cuda_runtime.h>
-//#include <stdio.h>
-//#include <math.h>
+// this is the 2-word constant geometry version
+// NOTE: need to rebuild project to detect changes in .cu files under certain conditions
 
+// TOOD: add wordsPerThread as parameter
 template<int N, int M, int D>
 __global__ void fft(float* A, float* ROT)
 {
-	//Declaration of arrays in shared memory.
 	__shared__ float SA[M], SB[M], SROT[N];
-
-	short tid = threadIdx.x;
+	short j = threadIdx.x;
 	short n = logf(N) / logf(2);
 
-	//loading "rotation elements" from Global memory to Shared memory with coalescence(in order of thread indices).
-	SROT[tid] = ROT[tid];
-	SROT[tid + D] = ROT[tid + D];
+	SROT[j] = ROT[j];
+	SROT[j + blockDim.x] = ROT[j + blockDim.x];
 
-	//loading "input elements" from Global memory to Shared memory with coalescence(in order of thread indices).
-	SA[tid] = A[tid];
-	SA[tid + D] = A[tid + D];
-	SA[tid + 2 * D] = A[tid + 2 * D];
-	SA[tid + 3 * D] = A[tid + 3 * D];
-	//synchronize all the threads untill all threads done their work(loading).
+	SA[j] = A[j];
+	SA[j + blockDim.x] = A[j + blockDim.x];
+	SA[j + 2 * blockDim.x] = A[j + 2 * blockDim.x];
+	SA[j + 3 * blockDim.x] = A[j + 3 * blockDim.x];
+
 	__syncthreads();
+	short ind0 = 2 * j;
+	short ind1 = 2 * j + N;
+	short ind2 = 4 * j;
 
-	//FFT computations will be done inside for loop; one stage will be computed in each iteration. 
 	for (short s = 1; s <= n; s++)
 	{
-		short p = (2 * N) / (1 << s);
-		short ind0 = 2 * tid + (tid / (1 << (n - s))) * (1 << (n - s + 1));
-		short ind1 = ind0 + p;
 
-		//one butterfly operations will be computed in each thread. 
-		//There are N/2 threads totally which performs N/2 butterfly operations in each stage. 
-		//Input elements can be accessed in any order from Shared memory with out loss of performance.
+		SB[ind2] = SA[ind0] + SA[ind1];
+		SB[ind2 + 1] = SA[ind0 + 1] + SA[ind1 + 1];
+		SB[ind2 + 2] = SA[ind0] - SA[ind1];
+		SB[ind2 + 3] = SA[ind0 + 1] - SA[ind1 + 1];
 
-		SB[ind0] = SA[ind0] + SA[ind1];//real parts addition.
-		SB[ind0 + 1] = SA[ind0 + 1] + SA[ind1 + 1];//img parts subtraction.
-		SB[ind1] = SA[ind0] - SA[ind1];//real parts subtraction.
-		SB[ind1 + 1] = SA[ind0 + 1] - SA[ind1 + 1];//img parts subtraction.
+		short r0 = (j / (1 << (s - 1))) * (1 << (s - 1));
 
-		// "r" calculates which rotation element should be required(accessed) for particular thread.
-		short r = (tid % (1 << (n - s))) * (1 << (s - 1));
-
-		SA[ind0] = SB[ind0];
-		SA[ind0 + 1] = SB[ind0 + 1];
-
-		SA[ind1] = SB[ind1] * SROT[2 * r] + SB[ind1 + 1] * SROT[2 * r + 1];
-		SA[ind1 + 1] = -SB[ind1] * SROT[2 * r + 1] + SB[ind1 + 1] * SROT[2 * r];
-
-		//synchronize all the threads untill all threads done their work(FFT computations).
+		SA[ind2] = SB[ind2];
+		SA[ind2 + 1] = SB[ind2 + 1];
+		SA[ind2 + 2] = SB[ind2 + 2] * SROT[2 * r0] + SB[ind2 + 3] * SROT[2 * r0 + 1];
+		SA[ind2 + 3] = -SB[ind2 + 2] * SROT[2 * r0 + 1] + SB[ind2 + 3] * SROT[2 * r0];
 		__syncthreads();
 	}
 
-	//storing output elements from Shared memory to Global memory with coalescence(in order of thread indices).
-	A[tid] = SA[tid];
-	A[tid + D] = SA[tid + D];
-	A[tid + 2 * D] = SA[tid + 2 * D];
-	A[tid + 3 * D] = SA[tid + 3 * D];
+	A[j] = SA[j];
+	A[j + blockDim.x] = SA[j + blockDim.x];
+	A[j + 2 * blockDim.x] = SA[j + 2 * blockDim.x];
+	A[j + 3 * blockDim.x] = SA[j + 3 * blockDim.x];
 }
 
 template<int N>
 void ExecuteFFT()
 {
+	static constexpr int nBlocks = 1;
 	static constexpr int nThreads = N / 2;
 	static constexpr int nData = 2 * N; // size of input/output array
 	static constexpr size_t dataWidth = sizeof(float) * nData;
@@ -90,8 +75,8 @@ void ExecuteFFT()
 	}
 
 	//Memory allocation in Global memory of Device(GPU).
-	cudaMalloc((void**)&pdData, dataWidth);
-	cudaMalloc((void**)&pdRots, rotsWidth);
+	cudaMalloc(reinterpret_cast<void**>(&pdData), dataWidth);
+	cudaMalloc(reinterpret_cast<void**>(&pdRots), rotsWidth);
 
 	//Copying "input elements" and "rotations" of N-point FFT from CPU to GPU(global memory of GPU(Device)).
 	cudaMemcpy(pdData, pData, dataWidth, cudaMemcpyHostToDevice);
@@ -101,12 +86,12 @@ void ExecuteFFT()
 	dim3 blockDim(nThreads);
 
 	//kernel invocation
-	fft<N, nData, nThreads> <<<gridDim, blockDim>>> (pdData, pdRots);
+	fft<N, nData, nThreads>KERNEL_GRID(nBlocks, nThreads)(pdData, pdRots);
 
 	//Copy output elements from Device to CPU after kernel execution.
 	cudaMemcpy(pData, pdData, dataWidth, cudaMemcpyDeviceToHost);
 
 	printf("The  outputs are: \n");
 	for (int l = 0; l < N; l++)
-		printf("RE:A[%d]=%f\t\t\t, IM: A[%d]=%f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
+		printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 }

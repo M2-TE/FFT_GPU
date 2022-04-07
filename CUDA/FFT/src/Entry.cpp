@@ -11,6 +11,6 @@
 
 int main()
 {
-	ExecuteFFT<64>();
+	ExecuteFFT<1024>();
 	//Do();
 }
