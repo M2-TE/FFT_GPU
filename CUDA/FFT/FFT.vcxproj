@@ -11,7 +11,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\Entry.cu" />
+    <ClInclude Include="src\KernelLauncher.cuh" />
+    <ClInclude Include="src\Utils.cuh" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\Entry.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{767697B3-8B03-4A90-ADB1-768FE93BAE4C}</ProjectGuid>
@@ -65,6 +69,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <Include>$(ProjectDir)src\;%(Include)</Include>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -84,6 +89,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <Include>$(ProjectDir)src\;%(Include)</Include>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

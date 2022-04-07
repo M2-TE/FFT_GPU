@@ -124,10 +124,10 @@ int main()
 	printf("The outputs are: \n");
 	for (int l = 0; l < N; l++)
 	{
-		printf("RE:A[%d]=%f\t\t\t, IM: A[%d]=%f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
+		//printf("RE:A[%d]=%f\t\t\t, IM: A[%d]=%f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
 	}
 
-	// printDeviceInfo();
+	printDeviceInfo();
 }
 
 void printDeviceInfo()
@@ -149,6 +149,7 @@ void printDeviceInfo()
 		printf("  Peak Memory Bandwidth (GB/s): %.1f\n",
 			2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
 		printf("  Total global memory (Gbytes) %.1f\n", (float)(prop.totalGlobalMem) / 1024.0 / 1024.0 / 1024.0);
+		printf("  Total constant memory (bytes) %d\n", prop.totalConstMem);
 		printf("  Shared memory per block (Kbytes) %.1f\n", (float)(prop.sharedMemPerBlock) / 1024.0);
 		printf("  Compute Capability: %d.%d\n", prop.major, prop.minor);
 		printf("  Warp-size: %d\n", prop.warpSize);
