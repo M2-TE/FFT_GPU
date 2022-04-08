@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\KernelFFT.cuh" />
     <ClInclude Include="src\KernelLauncher.cuh" />
     <ClInclude Include="src\Utils.cuh" />
   </ItemGroup>

@@ -6,6 +6,7 @@
 #include "Utils.cuh"
 //#include "revised/fft_cg_2w.cuh"
 //#include "revised/fft_2w.cuh"
+#include "KernelFFT.cuh"
 #include "KernelLauncher.cuh"
 //#include "revised/Header.cuh"
 
