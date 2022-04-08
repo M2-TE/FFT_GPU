@@ -1,5 +1,7 @@
 #pragma once
 
+#include "KernelFFT.cuh"
+
 template<int nInput>
 void ExecuteFFT()
 {
@@ -14,6 +16,7 @@ void ExecuteFFT()
 	float* pRots = new float[N];
 	float* pdData, *pdRots; // pointers to device ram (dram on GPU)
 
+	// TODO: fix the horrible loose type usage in these two loops (float/double/int/etc)
 	//input elements of N-point FFT.
 	for (int i = 0; i < N; i++)
 	{
@@ -24,7 +27,7 @@ void ExecuteFFT()
 	//Rotations of N-point FFT.
 	for (int j = 0; j < (N / 2); j++)
 	{
-		pRots[2 * j] = cosf((j * (6.2857)) / N);
+		pRots[2 * j] = cosf((j * (6.2857)) / N); // isnt 6.whatever just PI * 2?
 		pRots[2 * j + 1] = sinf((j * (6.2857)) / N);
 	}
 

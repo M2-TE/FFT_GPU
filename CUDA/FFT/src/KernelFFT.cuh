@@ -19,6 +19,8 @@ __global__ void KernelFFT(float* A, float* ROT)
 	// replace all the short with uint!
 	short j = threadIdx.x; // where is threadIdx stored? may not need to take up an extra register
 
+	// TODO: TRANSFERS: can probably make this dynamic based on word size?
+	// transfer rotations to shared memory
 	SROT[j] = ROT[j]; // word[0] rotation
 	SROT[j + blockDim.x] = ROT[j + blockDim.x]; // word[1] rotation
 
@@ -29,10 +31,13 @@ __global__ void KernelFFT(float* A, float* ROT)
 	SA[j + 2 * blockDim.x] = A[j + 2 * blockDim.x]; // word[0] of IMAGINARY
 	SA[j + 3 * blockDim.x] = A[j + 3 * blockDim.x]; // word[1] of IMAGINARY
 
+	// make sure shared memory is written across all threads
 	__syncthreads();
-	short ind0 = 2 * j;
-	short ind1 = 2 * j + N;
-	short ind2 = 4 * j;
+
+	// not yet fully sure what these are EXACTLY, but they seem to be the constant indices
+	short ind0 = 2 * j; // input real
+	short ind1 = 2 * j + N; // input imaginary(?)
+	short ind2 = 4 * j; // output real
 
 #pragma unroll // can unroll because n is now compile-time constant
 	for (short s = 1; s <= n; s++)
