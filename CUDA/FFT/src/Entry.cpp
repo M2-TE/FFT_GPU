@@ -6,11 +6,11 @@
 #include "Utils.cuh"
 //#include "revised/fft_cg_2w.cuh"
 //#include "revised/fft_2w.cuh"
+#include "revised/fft_cg_r2_2_s2_1024.cuh"
 #include "KernelLauncher.cuh"
-//#include "revised/Header.cuh"
 
 int main()
 {
 	ExecuteFFT<1024>();
-	//Do();
+	//DoA();
 }

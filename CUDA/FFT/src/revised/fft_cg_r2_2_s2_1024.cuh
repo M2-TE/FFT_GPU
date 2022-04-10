@@ -2,13 +2,16 @@
 #define M 2*N
 #define D 2*N   
 #define n 10
-__global__  void fft(float* A, float* ROT)
+
+__global__ void fft(float* A, float* ROT)
 {
+	clock_t start = clock();
+
+
 	__shared__ float SA[M], SB[M], SROT[M];
 	short j = threadIdx.x;
 
 	SROT[j] = ROT[j];
-
 	SA[j] = A[j];
 	__syncthreads();
 
@@ -85,14 +88,12 @@ __global__  void fft(float* A, float* ROT)
 
 	A[j] = SA[j];
 
+	clock_t stop = clock();
+	printf("%d \n", stop - start);
 }
 
-
-#include  <stdio.h> 
-#include  <math.h>
-int  main()
+void DoA()
 {
-
 	float A[2 * N];
 	float* Ad;
 	float ROT[2 * N];
@@ -120,18 +121,12 @@ int  main()
 	cudaMemcpy(Ad, A, memsize, cudaMemcpyHostToDevice);
 	cudaMemcpy(ROTd, ROT, rotsize, cudaMemcpyHostToDevice);
 
-	//__global__ functions are called:  Func<<< Dg, Db, Ns  >>>(parameter); 
-	dim3 gridDim(1, 1);
-	dim3 blockDim(D, 1);
-
-
-
 	float time;
 	cudaEvent_t start, stop;
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 	cudaEventRecord(start, 0);
-	fft << <gridDim, blockDim >> > (Ad, ROTd);
+	fft<<<1, D >>>(Ad, ROTd);
 	cudaEventRecord(stop, 0);
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&time, start, stop);
@@ -140,10 +135,16 @@ int  main()
 	cudaMemcpy(A, Ad, memsize, cudaMemcpyDeviceToHost);
 	cudaMemcpy(ROT, ROTd, rotsize, cudaMemcpyDeviceToHost);
 
+	
 	//printf("The  outputs are: \n");
 	//for (int l = 0; l < N; l++) printf("RE:A[%d]=%f\t\t\t, IM: A[%d]=%f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
 
 }
+
+#undef N
+#undef M
+#undef D  
+#undef n
 
 
 

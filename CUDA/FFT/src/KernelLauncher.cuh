@@ -14,6 +14,7 @@ void ExecuteFFT()
 
 	float* pData = new float[N * 2];
 	float* pRots = new float[N];
+	float* pClock = new float[nThreads];
 	float* pdData, *pdRots; // pointers to device ram (dram on GPU)
 
 	// TODO: fix the horrible loose type usage in these two loops (float/double/int/etc)
@@ -39,16 +40,21 @@ void ExecuteFFT()
 	cudaMemcpy(pdData, pData, dataWidth, cudaMemcpyHostToDevice);
 	cudaMemcpy(pdRots, pRots, rotsWidth, cudaMemcpyHostToDevice);
 
-	dim3 gridDim(1);
-	dim3 blockDim(nThreads);
-
 	//kernel invocation
+	float time;
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord(start, 0);
 	KernelFFT<nInput, 2, 10>KERNEL_GRID(nBlocks, nThreads)(pdData, pdRots);
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&time, start, stop);
+	printf("Time for the kernel: %f us\n", time * 1000.0);
 
 	//Copy output elements from Device to CPU after kernel execution.
 	cudaMemcpy(pData, pdData, dataWidth, cudaMemcpyDeviceToHost);
 
-	printf("The  outputs are: \n");
-	for (int l = 0; l < N; l++)
-		printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
+	//printf("The  outputs are: \n");
+	//for (int l = 0; l < N; l++) printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 }
