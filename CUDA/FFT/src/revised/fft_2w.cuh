@@ -13,7 +13,7 @@
 __global__ void fft(float* A, float* ROT)
 {
 	//Declaration of arrays in shared memory.
-	__shared__ float SA[M], SB[M], SROT[N];
+	__shared__ float SA[M], /*SB[M],*/ SROT[N];
 
 	short tid = threadIdx.x;
 	short n = logf(N) / logf(2);
@@ -41,19 +41,20 @@ __global__ void fft(float* A, float* ROT)
 		//There are N/2 threads totally which performs N/2 butterfly operations in each stage. 
 		//Input elements can be accessed in any order from Shared memory with out loss of performance.
 
-		SB[ind0] = SA[ind0] + SA[ind1];//real parts addition.
-		SB[ind0 + 1] = SA[ind0 + 1] + SA[ind1 + 1];//img parts subtraction.
-		SB[ind1] = SA[ind0] - SA[ind1];//real parts subtraction.
-		SB[ind1 + 1] = SA[ind0 + 1] - SA[ind1 + 1];//img parts subtraction.
+		float sb0 = SA[ind0] + SA[ind1];//real parts addition.
+		float sb1 = SA[ind0 + 1] + SA[ind1 + 1];//img parts subtraction.
+
+		float sb2 = SA[ind0] - SA[ind1];//real parts subtraction.
+		float sb3 = SA[ind0 + 1] - SA[ind1 + 1];//img parts subtraction.
 
 		// "r" calculates which rotation element should be required(accessed) for particular thread.
 		short r = (tid % (1 << (n - s))) * (1 << (s - 1));
 
-		SA[ind0] = SB[ind0];
-		SA[ind0 + 1] = SB[ind0 + 1];
+		SA[ind0] = sb0;
+		SA[ind0 + 1] = sb1;
 
-		SA[ind1] = SB[ind1] * SROT[2 * r] + SB[ind1 + 1] * SROT[2 * r + 1];
-		SA[ind1 + 1] = -SB[ind1] * SROT[2 * r + 1] + SB[ind1 + 1] * SROT[2 * r];
+		SA[ind1] = sb2 * SROT[2 * r] + sb3 * SROT[2 * r + 1];
+		SA[ind1 + 1] = -sb2 * SROT[2 * r + 1] + sb3 * SROT[2 * r];
 
 		//synchronize all the threads untill all threads done their work(FFT computations).
 		__syncthreads();

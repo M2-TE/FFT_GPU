@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClInclude Include="src\KernelFFT.cuh" />
     <ClInclude Include="src\KernelLauncher.cuh" />
+    <ClInclude Include="src\revised\fft_cg_2w.cuh" />
     <ClInclude Include="src\Utils.cuh" />
   </ItemGroup>
   <ItemGroup>
