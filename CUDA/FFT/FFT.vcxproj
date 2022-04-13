@@ -19,6 +19,7 @@
   <ItemGroup>
     <CudaCompile Include="src\Entry.cpp" />
     <ClInclude Include="src\revised\fft_cg_r2_2_s2_1024.cuh" />
+    <ClInclude Include="src\revised\fft_mk_cg_r2_2_1024.cuh" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{767697B3-8B03-4A90-ADB1-768FE93BAE4C}</ProjectGuid>

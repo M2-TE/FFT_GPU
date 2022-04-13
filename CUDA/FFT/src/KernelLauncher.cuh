@@ -49,19 +49,17 @@ void ExecuteFFT()
 	cudaMemcpy(pdCycles, pCycles, cyclesWidth, cudaMemcpyHostToDevice); // unnecessary
 
 	//kernel invocation
-	float time;
-	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-	cudaEventRecord(start, 0);
+	CUDA_TIMER_START();
 	KernelFFT<nInput, nData, 2, nThreads, 10>KERNEL_GRID(nBlocks, nThreads)(pdData, pdRots, pdCycles);
-	cudaEventRecord(stop, 0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&time, start, stop);
+	CUDA_TIMER_END();
 
 	//Copy output elements from Device to CPU after kernel execution.
 	cudaMemcpy(pData, pdData, dataWidth, cudaMemcpyDeviceToHost);
 	cudaMemcpy(pCycles, pdCycles, cyclesWidth, cudaMemcpyDeviceToHost);
+
+
+	printf("The  outputs are: \n");
+	//for (int l = 0; l < N; l++) printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 
 	// min/max/avg cycles
 	uint min = 1000000u, max = 0u;
@@ -75,9 +73,6 @@ void ExecuteFFT()
 	avg /= static_cast<float>(nThreads);
 	printf("Cycles: min %d, max %d, avg %.2f\n", min, max, avg);
 	printf("Time for the kernel: %f us\n", time * 1000.0);
-
-	//printf("The  outputs are: \n");
-	//for (int l = 0; l < N; l++) printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 
 	// clean up
 	delete pData, pRots, pCycles;

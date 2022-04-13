@@ -7,6 +7,10 @@
 	#define KERNEL_GRID(grid, block)
 #endif
 
+#define CUDA_TIMER_START() float time; cudaEvent_t start, stop; cudaEventCreate(&start); cudaEventCreate(&stop); cudaEventRecord(start, 0)
+#define CUDA_TIMER_END() cudaEventRecord(stop, 0); cudaEventSynchronize(stop); cudaEventElapsedTime(&time, start, stop)
+#define CUDA_TIMER_PRINT() printf("Time for the kernel: %f us\n", time * 1000.0)
+
 void PrintDeviceInfo()
 {
 	int nDevices;

@@ -11,66 +11,51 @@
 #include "KernelLauncher.cuh"
 //#include "revised/fft_2w.cuh"
 //#include "revised/fft_cg_2w.cuh"
-//#include "revised/fft_cg_r2_2_s2_1024.cuh"
+#include "revised/fft_mk_cg_r2_2_1024.cuh"
 
 void DoCUFFT();
 int main()
 {
-	//ExecuteFFT<1024>();
-	DoCUFFT();
+	//DoA();
+	ExecuteFFT<1024>();
+	ExecuteFFT<1024>();
+	//DoCUFFT();
 }
 void DoCUFFT()
 {
-#define NX 256
+#define NX 1024
 #define BATCH 1
 
 	cufftHandle plan;
 	cufftComplex* data;
-	cudaMalloc((void**)&data, sizeof(cufftComplex) * NX * BATCH);
+	float* input = new float[NX * 2];
 
-	if (cudaGetLastError() != cudaSuccess) {
-		fprintf(stderr, "Cuda error: Failed to allocate\n");
-		return;
+	for (int i = 0; i < NX; i++)
+	{
+		input[2 * i] = i;
+		input[2 * i + 1] = i;
 	}
 
-	if (cufftPlan1d(&plan, NX, CUFFT_C2C, BATCH) != CUFFT_SUCCESS) {
-		fprintf(stderr, "CUFFT error: Plan creation failed");
-		return;
-	}
+	cudaMalloc((void**)&data, sizeof(cufftComplex) * NX);
+	cudaMemcpy(data, input, sizeof(cufftComplex) * NX, cudaMemcpyKind::cudaMemcpyHostToDevice);
 
-	// ...
+	cufftPlan1d(&plan, NX, CUFFT_C2C, BATCH);
 
-	/* Note:
-		*  Identical pointers to input and output arrays implies in-place transformation
-		*/
+	cufftExecC2C(plan, data, data, CUFFT_FORWARD);
+	cufftExecC2C(plan, data, data, CUFFT_FORWARD);
+	CUDA_TIMER_START();
+	cufftExecC2C(plan, data, data, CUFFT_FORWARD);
+	//cufftExecC2C(plan, data, data, CUFFT_INVERSE);
+	CUDA_TIMER_END();
 
-	if (cufftExecC2C(plan, data, data, CUFFT_FORWARD) != CUFFT_SUCCESS) {
-		fprintf(stderr, "CUFFT error: ExecC2C Forward failed");
-		return;
-	}
+	cudaDeviceSynchronize();
 
-	if (cufftExecC2C(plan, data, data, CUFFT_INVERSE) != CUFFT_SUCCESS) {
-		fprintf(stderr, "CUFFT error: ExecC2C Inverse failed");
-		return;
-	}
+	printf("The  outputs are: \n");
+	cudaMemcpy(input, data, sizeof(cufftComplex) * NX, cudaMemcpyKind::cudaMemcpyDeviceToHost);
+	//for (int l = 0; l < NX; l++) printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, input[2 * l], 2 * l + 1, input[2 * l + 1]);
+	CUDA_TIMER_PRINT();
 
-	/*
-	 *  Results may not be immediately available so block device until all
-	 *  tasks have completed
-	 */
-
-	if (cudaDeviceSynchronize() != cudaSuccess) {
-		fprintf(stderr, "Cuda error: Failed to synchronize\n");
-		return;
-	}
-
-	/*
-	 *  Divide by number of elements in data set to get back original data
-	 */
-
-	// ...
-
+	delete input;
 	cufftDestroy(plan);
 	cudaFree(data);
 }
-
