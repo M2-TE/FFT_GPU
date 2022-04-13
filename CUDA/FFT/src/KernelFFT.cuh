@@ -1,5 +1,8 @@
 #pragma once
 
+// almost consistent overhead (?):
+// Debug: ~311 clock cycles
+// Release: ~6 clock cycles
 #ifdef _DEBUG
 	#define START() clock_t start = clock()
 	#define STOP() clock_t stop = clock()
@@ -12,33 +15,46 @@
 
 // this is radix 2, not radix 2^2
 
+// N = input size of FFT
+// M = input size of data (N + Imaginary)
+// W = word group size
+// T = number of threads
+// S = number of stages/butterflies
 typedef unsigned int uint;
 template<uint N, uint M, uint W, uint T, uint S>
 static __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 {
+	START();
 	__shared__ float SA[M], SROT[N];
-	// indices
+
+	// DO ROTS HERE
+
+	// indices (these are goind to cause bank conflicts!)
 	const uint tid = threadIdx.x;
-	const uint ind0 = 2 * tid; // input real
-	const uint ind1 = 2 * tid + N; // input imaginary(?)
+	const uint ind0 = 2 * tid; // input real (word 1)
+	const uint ind1 = 2 * tid + N; // real (word 2)
 	const uint ind2 = 4 * tid; // output
 
+	// These coalesce properly.
+	//
 	// transfer rotations to shared memory
 	SROT[tid] = ROT[tid]; // word[0] rotation
-	SROT[tid + blockDim.x] = ROT[tid + blockDim.x]; // word[1] rotation
+	SROT[tid + T] = ROT[tid + T]; // word[1] rotation
 
 	// transfer input data to shared memory
 	SA[tid] = A[tid];
-	SA[tid + blockDim.x] = A[tid + blockDim.x];
-	SA[tid + 2 * blockDim.x] = A[tid + 2 * blockDim.x];
-	SA[tid + 3 * blockDim.x] = A[tid + 3 * blockDim.x];
+	SA[tid + T] = A[tid + T];
+	SA[tid + 2 * T] = A[tid + 2 * T];
+	SA[tid + 3 * T] = A[tid + 3 * T];
 
 	// make sure shared memory is written across all threads
 	__syncthreads();
 
-//#pragma unroll
+#pragma unroll // can unroll because S is known at compile time
 	for (uint s = 1; s <= S; s++)
 	{
+		// could store the ind0 + 1 in a register so it doesnt get calculated again each iteration?
+		// bank conflict!
 		float sb0 = SA[ind0] + SA[ind1]; // real parts addition.
 		float sb1 = SA[ind0 + 1] + SA[ind1 + 1]; //img parts addition.
 
@@ -55,91 +71,13 @@ static __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 		__syncthreads();
 	}
 
+
 	// write to output (dram)
 	A[tid] = SA[tid];
-	A[tid + blockDim.x] = SA[tid + blockDim.x];
-	A[tid + 2 * blockDim.x] = SA[tid + 2 * blockDim.x];
-	A[tid + 3 * blockDim.x] = SA[tid + 3 * blockDim.x];
+	A[tid + T] = SA[tid + T];
+	A[tid + 2 * T] = SA[tid + 2 * T];
+	A[tid + 3 * T] = SA[tid + 3 * T];
 
-	START();
 	STOP();
 	WRITE_CYCLES(tid);
-}
-
-template<uint N, uint M, uint W, uint T, uint S> // TOOD: find a way to do the logf(N) / logf(nWordsPerThread) at compile time!
-static __global__ void KernelFFTNotes(float* A, float* ROT)
-{
-	// almost consistent overhead (?):
-	// Debug: ~311 clock cycles
-	// Release: ~6 clock cycles
-	//START();
-	//STOP();
-
-	// TODO: check if these have an impact at runtime or if they actually work like c++ static constexpr
-	// These might not work with earlier CUDA versions, so probably better off putting everything into template parameters instead
-	//constexpr uint N = nInput; // FFT size
-	//constexpr uint M = nInput * 2u; // Data size
-	//constexpr uint W = nWordsPerThread; // word group size
-	//constexpr uint T = M / W; // total number of threads (currently same as blockDim.x)
-	//uint n = logf(N) / logf(2); // n is amount of stages, 2 is word size here TODO: MAKE THIS CONSTEXPR
-	//constexpr uint n = nStages; // TODO: turn into uint
-
-	__shared__ float SA[M], /*SB[M],*/ SROT[N]; // whats the point of SB here?
-
-
-	// replace all the uint with uint!
-	uint tid = threadIdx.x; // where is threadIdx stored? may not need to take up an extra register
-	const uint ind0 = 2 * tid; // input real
-	const uint ind1 = 2 * tid + N; // input imaginary(?)
-	const uint ind2 = 4 * tid; // output
-
-	// TODO: TRANSFERS: can probably make this dynamic based on word size?
-	// transfer rotations to shared memory
-	SROT[tid] = ROT[tid]; // word[0] rotation
-	SROT[tid + blockDim.x] = ROT[tid + blockDim.x]; // word[1] rotation
-
-	// transfer input data to shared memory
-	// TODO: can probably make do with only one (two total) read, since first input on word[0] == word[1]
-	SA[tid] = A[tid];
-	SA[tid + blockDim.x] = A[tid + blockDim.x];
-	SA[tid + 2 * blockDim.x] = A[tid + 2 * blockDim.x];
-	SA[tid + 3 * blockDim.x] = A[tid + 3 * blockDim.x];
-
-	// make sure shared memory is written across all threads
-	//START();
-	__syncthreads();
-	//STOP();
-
-
-	// TOOD: measure precise clock cycles!
-//#pragma unroll // can unroll because S is now compile-time constant
-	for (uint s = 1; s <= S; s++)
-	{
-		// take care of which shared memory banks are accessed here, needs close inspection
-		// -> more than 1 word per group results in bank 
-		// removed SB usage
-		// removed some shared memory reads using extra registers
-
-		// these arent multiple reads, compiler optimizes it
-		float sb0 = SA[ind0] + SA[ind1]; // real parts addition.
-		float sb1 = SA[ind0 + 1] + SA[ind1 + 1]; //img parts addition.
-
-		float sb2 = SA[ind0] - SA[ind1]; //real parts subtraction.
-		float sb3 = SA[ind0 + 1] - SA[ind1 + 1]; //img parts subtraction.
-
-		// rotation index (?) based on stage
-		uint r0 = (tid / (1 << (s - 1))) * (1 << (s - 1));
-
-		SA[ind2] = sb0;
-		SA[ind2 + 1] = sb1;
-		SA[ind2 + 2] = sb2 * SROT[2 * r0] + sb3 * SROT[2 * r0 + 1];
-		SA[ind2 + 3] = -sb2 * SROT[2 * r0 + 1] + sb3 * SROT[2 * r0];
-		__syncthreads();
-	}
-
-	// write to output (dram)
-	A[tid] = SA[tid];
-	A[tid + blockDim.x] = SA[tid + blockDim.x];
-	A[tid + 2 * blockDim.x] = SA[tid + 2 * blockDim.x];
-	A[tid + 3 * blockDim.x] = SA[tid + 3 * blockDim.x];
 }
