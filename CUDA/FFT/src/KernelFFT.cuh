@@ -22,7 +22,7 @@
 // S = number of stages/butterflies
 typedef unsigned int uint;
 template<uint N, uint M, uint W, uint T, uint S>
-static __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
+__global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 {
 	START();
 	__shared__ float SA[M], SROT[N];

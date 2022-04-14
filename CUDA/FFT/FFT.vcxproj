@@ -11,10 +11,74 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\CufftImpl.cuh" />
     <ClInclude Include="src\KernelFFT.cuh" />
     <ClInclude Include="src\KernelLauncher.cuh" />
     <ClInclude Include="src\revised\fft_cg_2w.cuh" />
     <ClInclude Include="src\Utils.cuh" />
+    <ClInclude Include="vendor\gcem\include\gcem.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\abs.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\acos.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\acosh.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\asin.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\asinh.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\atan.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\atan2.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\atanh.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\beta.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\binomial_coef.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\ceil.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\copysign.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\cos.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\cosh.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\erf.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\erf_inv.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\exp.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\expm1.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\factorial.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\find_exponent.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\find_fraction.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\find_whole.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\floor.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\fmod.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\gcd.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\gcem_options.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\incomplete_beta.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\incomplete_beta_inv.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\incomplete_gamma.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\incomplete_gamma_inv.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\is_even.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\is_finite.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\is_inf.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\is_nan.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\is_odd.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\lbeta.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\lcm.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\lgamma.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\lmgamma.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\log.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\log10.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\log1p.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\log2.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\log_binomial_coef.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\mantissa.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\max.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\min.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\neg_zero.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\pow.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\pow_integral.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\quadrature\gauss_legendre_30.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\quadrature\gauss_legendre_50.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\round.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\sgn.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\signbit.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\sin.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\sinh.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\sqrt.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\tan.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\tanh.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\tgamma.hpp" />
+    <ClInclude Include="vendor\gcem\include\gcem_incl\trunc.hpp" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\Entry.cpp" />
@@ -73,7 +137,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <Include>$(ProjectDir)src\;%(Include)</Include>
+      <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -93,7 +157,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <Include>$(ProjectDir)src\;%(Include)</Include>
+      <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

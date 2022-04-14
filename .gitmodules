@@ -1,0 +1,3 @@
+[submodule "CUDA/FFT/vendor/gcem"]
+	path = CUDA/FFT/vendor/gcem
+	url = https://github.com/kthohr/gcem.git

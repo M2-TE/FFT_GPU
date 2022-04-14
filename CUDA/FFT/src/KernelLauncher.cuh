@@ -3,12 +3,14 @@
 #include "KernelFFT.cuh"
 
 template<int nInput>
-void ExecuteFFT()
+float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 {
 	static constexpr int N = nInput;
 	static constexpr int nBlocks = 1;
 	static constexpr int nThreads = N / 2;
 	static constexpr int nData = 2 * N; // size of input/output array
+	static constexpr uint nStages = gcem::log(static_cast<float>(nInput)) / gcem::log(2.0f); // word group size of 2
+
 	static constexpr size_t dataWidth = sizeof(float) * nData;
 	static constexpr size_t rotsWidth = sizeof(float) * N;
 	static constexpr size_t cyclesWidth = sizeof(uint) * nThreads;
@@ -50,30 +52,39 @@ void ExecuteFFT()
 
 	//kernel invocation
 	CUDA_TIMER_START();
-	KernelFFT<nInput, nData, 2, nThreads, 10>KERNEL_GRID(nBlocks, nThreads)(pdData, pdRots, pdCycles);
+	for (uint i = 0u; i < nRepetitions; i++) {
+		KernelFFT<nInput, nData, 2, nThreads, nStages>KERNEL_GRID(nBlocks, nThreads)(pdData, pdRots, pdCycles);
+	}
 	CUDA_TIMER_END();
 
 	//Copy output elements from Device to CPU after kernel execution.
 	cudaMemcpy(pData, pdData, dataWidth, cudaMemcpyDeviceToHost);
 	cudaMemcpy(pCycles, pdCycles, cyclesWidth, cudaMemcpyDeviceToHost);
 
+	if (bPrintOutput) {
+		printf("The  outputs are: \n");
+		for (int l = 0; l < N; l++) {
+			//printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
+		}
 
-	printf("The  outputs are: \n");
-	//for (int l = 0; l < N; l++) printf("RE:A[%d]=%.2f\t\t\t, IM: A[%d]=%.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
-
-	// min/max/avg cycles
-	uint min = 1000000u, max = 0u;
-	float avg = 0.0f;
-	for (int i = 0; i < nThreads; i++) {
-		uint cycles = pCycles[i];
-		min = cycles < min ? cycles : min;
-		max = cycles > max ? cycles : max;
-		avg += static_cast<float>(cycles);
+		// min/max/avg cycles
+		uint min = 1000000u, max = 0u;
+		float avg = 0.0f;
+		for (int i = 0; i < nThreads; i++) {
+			uint cycles = pCycles[i];
+			min = cycles < min ? cycles : min;
+			max = cycles > max ? cycles : max;
+			avg += static_cast<float>(cycles);
+		}
+		avg /= static_cast<float>(nThreads);
+		printf("Cycles: min %d, max %d, avg %.2f\n", min, max, avg);
+		printf("Time for the kernel: %f us\n", time * 1000.0);
 	}
-	avg /= static_cast<float>(nThreads);
-	printf("Cycles: min %d, max %d, avg %.2f\n", min, max, avg);
-	printf("Time for the kernel: %f us\n", time * 1000.0);
 
 	// clean up
 	delete pData, pRots, pCycles;
+	cudaFree(pdData);
+	cudaFree(pdRots);
+	cudaFree(pdCycles);
+	return time;
 }
