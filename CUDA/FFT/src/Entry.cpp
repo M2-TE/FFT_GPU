@@ -10,9 +10,9 @@
 #include <cufft.h>
 
 // src code
-#include "Utils.cuh"
-#include "KernelLauncher.cuh"
-#include "CufftImpl.cuh"
+#include "utils.cuh"
+#include "kernel_launcher.cuh"
+#include "cufft_impl.cuh"
 //#include "revised/fft_2w.cuh"
 //#include "revised/fft_cg_2w.cuh"
 //#include "revised/fft_mk_cg_r2_2_1024.cuh"

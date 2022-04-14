@@ -1,6 +1,6 @@
 #pragma once
 
-#include "KernelFFT.cuh"
+#include "kernel_fft.cuh"
 
 template<int nInput>
 float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
