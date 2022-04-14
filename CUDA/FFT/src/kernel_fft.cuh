@@ -14,21 +14,24 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 
 	// TODO: CALC ROTS HERE
 
-	// indices (these are goin to cause bank conflicts!)
+	// indices
 	const uint tid = threadIdx.x;
-	const uint ind0 = 2 * tid; // input real (word 1)
-	const uint ind1 = 2 * tid + N; // real (word 2)
-	const uint ind2 = 4 * tid; // output
+	const uint iRot = tid * 2u;
+	const uint iInOut = tid * 4u;
+	// these are goin to cause bank conflicts!
+	const uint ind0 = 2u * tid; // input real (word 1)
+	const uint ind1 = 2u * tid + N; // real (word 2)
+	const uint ind2 = 4u * tid; // output
 
 	// transfer rotations to shared memory
-	SROT[tid] = ROT[tid]; // word[0] rotation
-	SROT[tid + T] = ROT[tid + T]; // word[1] rotation
+	SROT[iRot + 0] = ROT[iRot + 0];
+	SROT[iRot + 1] = ROT[iRot + 1];
 
 	// transfer input data to shared memory
-	SA[tid] = A[tid];
-	SA[tid + T] = A[tid + T];
-	SA[tid + 2 * T] = A[tid + 2 * T];
-	SA[tid + 3 * T] = A[tid + 3 * T];
+	SA[iInOut + 0] = A[iInOut + 0];
+	SA[iInOut + 1] = A[iInOut + 1];
+	SA[iInOut + 2] = A[iInOut + 2];
+	SA[iInOut + 3] = A[iInOut + 3];
 
 	// make sure shared memory is written across all threads
 	__syncthreads();
@@ -56,10 +59,10 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 
 
 	// write to output (dram)
-	A[tid] = SA[tid];
-	A[tid + T] = SA[tid + T];
-	A[tid + 2 * T] = SA[tid + 2 * T];
-	A[tid + 3 * T] = SA[tid + 3 * T];
+	A[iInOut + 0] = SA[iInOut + 0];
+	A[iInOut + 1] = SA[iInOut + 1];
+	A[iInOut + 2] = SA[iInOut + 2];
+	A[iInOut + 3] = SA[iInOut + 3];
 
 	STOP();
 	WRITE_CYCLES(tid);
