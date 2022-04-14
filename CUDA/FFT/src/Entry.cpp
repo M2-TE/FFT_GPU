@@ -26,7 +26,7 @@ int main()
 
 	// 2048 is the limit (thread limit per SM)
 	float a = 0.0f, b = 0.0f;
-	uint n = 1000u, rep = 1u;
+	uint n = 100u, rep = 1u;
 	for (uint i = 0u; i < n; i++) a += ExecuteFFT<N>(rep);
 	for (uint i = 0u; i < n; i++) b += DoCUFFT(N, rep); // reusing an already existing plan results in higher throughput
 

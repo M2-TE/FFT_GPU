@@ -54,6 +54,7 @@ float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 	CUDA_TIMER_START();
 	for (uint i = 0u; i < nRepetitions; i++) {
 		KernelFFT<nInput, nData, 2, nThreads, nStages>KERNEL_GRID(nBlocks, nThreads)(pdData, pdRots, pdCycles);
+		cudaDeviceSynchronize();
 	}
 	CUDA_TIMER_END();
 

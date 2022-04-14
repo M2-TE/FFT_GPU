@@ -20,10 +20,9 @@ float DoCUFFT(uint NX, uint nRepetitions, bool bPrintOutput = false)
 	CUDA_TIMER_START();
 	for (uint i = 0u; i < nRepetitions; i++) {
 		cufftExecC2C(plan, data, data, CUFFT_FORWARD);
+		cudaDeviceSynchronize();
 	}
 	CUDA_TIMER_END();
-
-	cudaDeviceSynchronize();
 
 	if (bPrintOutput) {
 		printf("The  outputs are: \n");
