@@ -65,7 +65,7 @@ float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 	if (bPrintOutput) {
 		printf("The  outputs are: \n");
 		for (int l = 0; l < N; l++) {
-			//printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
+			printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 		}
 
 		// min/max/avg cycles

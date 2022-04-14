@@ -1,42 +1,25 @@
 #pragma once
 
-// almost consistent overhead (?):
-// Debug: ~311 clock cycles
-// Release: ~6 clock cycles
-#ifdef _DEBUG
-	#define START() clock_t start = clock()
-	#define STOP() clock_t stop = clock()
-	#define WRITE_CYCLES(tid) pCycles[tid] = (uint)(stop - start);
-#else
-	#define START() clock_t start = clock()
-	#define STOP() clock_t stop = clock()
-	#define WRITE_CYCLES(tid) pCycles[tid] = (uint)(stop - start);
-#endif
-
-// this is radix 2, not radix 2^2
 
 // N = input size of FFT
 // M = input size of data (N + Imaginary)
 // W = word group size
 // T = number of threads
 // S = number of stages/butterflies
-typedef unsigned int uint;
 template<uint N, uint M, uint W, uint T, uint S>
 __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 {
 	START();
 	__shared__ float SA[M], SROT[N];
 
-	// DO ROTS HERE
+	// TODO: CALC ROTS HERE
 
-	// indices (these are goind to cause bank conflicts!)
+	// indices (these are goin to cause bank conflicts!)
 	const uint tid = threadIdx.x;
 	const uint ind0 = 2 * tid; // input real (word 1)
 	const uint ind1 = 2 * tid + N; // real (word 2)
 	const uint ind2 = 4 * tid; // output
 
-	// These coalesce properly.
-	//
 	// transfer rotations to shared memory
 	SROT[tid] = ROT[tid]; // word[0] rotation
 	SROT[tid + T] = ROT[tid + T]; // word[1] rotation
