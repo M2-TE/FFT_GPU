@@ -23,15 +23,22 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 	const uint ind1 = 2u * tid + N; // real (word 2)
 	const uint ind2 = 4u * tid; // output
 
-	// transfer rotations to shared memory
-	SROT[iRot + 0] = ROT[iRot + 0];
-	SROT[iRot + 1] = ROT[iRot + 1];
+	SROT[tid] = ROT[tid];
+	SROT[tid + blockDim.x] = ROT[tid + blockDim.x];
 
-	// transfer input data to shared memory
-	SA[iInOut + 0] = A[iInOut + 0];
-	SA[iInOut + 1] = A[iInOut + 1];
-	SA[iInOut + 2] = A[iInOut + 2];
-	SA[iInOut + 3] = A[iInOut + 3];
+	SA[tid] = A[tid];
+	SA[tid + blockDim.x] = A[tid + blockDim.x];
+	SA[tid + 2 * blockDim.x] = A[tid + 2 * blockDim.x];
+	SA[tid + 3 * blockDim.x] = A[tid + 3 * blockDim.x];
+	//// transfer rotations to shared memory
+	//SROT[iRot + 0] = ROT[iRot + 0];
+	//SROT[iRot + 1] = ROT[iRot + 1];
+
+	//// transfer input data to shared memory
+	//SA[iInOut + 0] = A[iInOut + 0];
+	//SA[iInOut + 1] = A[iInOut + 1];
+	//SA[iInOut + 2] = A[iInOut + 2];
+	//SA[iInOut + 3] = A[iInOut + 3];
 
 	// make sure shared memory is written across all threads
 	__syncthreads();
@@ -58,11 +65,16 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 	}
 
 
-	// write to output (dram)
-	A[iInOut + 0] = SA[iInOut + 0];
-	A[iInOut + 1] = SA[iInOut + 1];
-	A[iInOut + 2] = SA[iInOut + 2];
-	A[iInOut + 3] = SA[iInOut + 3];
+	//// write to output (dram)
+	//A[iInOut + 0] = SA[iInOut + 0];
+	//A[iInOut + 1] = SA[iInOut + 1];
+	//A[iInOut + 2] = SA[iInOut + 2];
+	//A[iInOut + 3] = SA[iInOut + 3];
+
+	A[tid] = SA[tid];
+	A[tid + blockDim.x] = SA[tid + blockDim.x];
+	A[tid + 2 * blockDim.x] = SA[tid + 2 * blockDim.x];
+	A[tid + 3 * blockDim.x] = SA[tid + 3 * blockDim.x];
 
 	STOP();
 	WRITE_CYCLES(tid);
