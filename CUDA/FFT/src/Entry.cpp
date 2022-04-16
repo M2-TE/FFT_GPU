@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <math.h>
 
-// constexpr math library (additional include dir doesnt seem to work lol)
-#include "../vendor/gcem/include/gcem.hpp"
+// constexpr math library
+#include "gcem/include/gcem.hpp"
 
 // cuFFT
 #include <cufft.h>
