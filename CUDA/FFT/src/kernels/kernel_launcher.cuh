@@ -24,7 +24,6 @@ float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 	float* pdData, *pdRots; 
 	uint* pdCycles;
 
-	// TODO: fix the horrible loose type usage in these two loops (float/double/int/etc)
 	//input elements of N-point FFT.
 	for (int i = 0; i < N; i++)
 	{
@@ -32,13 +31,13 @@ float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 		pData[2 * i + 1] = i;
 	}
 
+	// TODO: fix the horrible loose type usage in these two loops (float/double/int/etc)
 	//Rotations of N-point FFT.
 	for (int j = 0; j < (N / 2); j++)
 	{
 		pRots[2 * j] = cosf((j * (6.2857)) / N); // isnt 6.whatever just PI * 2?
 		pRots[2 * j + 1] = sinf((j * (6.2857)) / N);
 	}
-	for (int i = 0; i < nThreads; i++) pCycles[i] = 0u; // unnecessary
 
 	//Memory allocation in Global memory of Device(GPU).
 	cudaMalloc(reinterpret_cast<void**>(&pdData), dataWidth);
@@ -48,7 +47,6 @@ float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 	//Copying "input elements" and "rotations" of N-point FFT from CPU to GPU(global memory of GPU(Device)).
 	cudaMemcpy(pdData, pData, dataWidth, cudaMemcpyHostToDevice);
 	cudaMemcpy(pdRots, pRots, rotsWidth, cudaMemcpyHostToDevice);
-	cudaMemcpy(pdCycles, pCycles, cyclesWidth, cudaMemcpyHostToDevice); // unnecessary
 
 	//kernel invocation
 	CUDA_TIMER_START();
@@ -65,7 +63,7 @@ float ExecuteFFT(uint nRepetitions, bool bPrintOutput = false)
 	if (bPrintOutput) {
 		printf("The  outputs are: \n");
 		for (int l = 0; l < N; l++) {
-			printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
+			// printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 		}
 
 		// min/max/avg cycles

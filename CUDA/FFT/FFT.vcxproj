@@ -11,10 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\cufft_impl.cuh" />
-    <ClInclude Include="src\kernel_fft.cuh" />
-    <ClInclude Include="src\kernel_launcher.cuh" />
-    <ClInclude Include="src\revised\fft_cg_2w.cuh" />
+    <ClInclude Include="src\cufft\cufft_impl.cuh" />
+    <ClInclude Include="src\kernels\kernel_fft.cuh" />
+    <ClInclude Include="src\kernels\kernel_fft_new.cuh" />
+    <ClInclude Include="src\kernels\kernel_launcher.cuh" />
+    <ClInclude Include="src\kernels\kernel_launcher_new.cuh" />
+    <ClInclude Include="src\old\revised\fft_cg_2w.cuh" />
     <ClInclude Include="src\utils.cuh" />
     <ClInclude Include="vendor\gcem\include\gcem.hpp" />
     <ClInclude Include="vendor\gcem\include\gcem_incl\abs.hpp" />

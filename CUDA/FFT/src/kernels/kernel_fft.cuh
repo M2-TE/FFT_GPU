@@ -1,6 +1,5 @@
 #pragma once
 
-
 // N = input size of FFT
 // M = input size of data (N + Imaginary)
 // W = word group size
@@ -16,11 +15,9 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 
 	// indices
 	const uint tid = threadIdx.x;
-	const uint iRot = tid * 2u;
-	const uint iInOut = tid * 4u;
 	// these are goin to cause bank conflicts!
-	const uint ind0 = 2u * tid; // input real (word 1)
-	const uint ind1 = 2u * tid + N; // real (word 2)
+	const uint ind0 = 2u * tid; // word 1
+	const uint ind1 = 2u * tid + N; // word 2
 	const uint ind2 = 4u * tid; // output
 
 	SROT[tid] = ROT[tid];
@@ -30,15 +27,6 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 	SA[tid + blockDim.x] = A[tid + blockDim.x];
 	SA[tid + 2 * blockDim.x] = A[tid + 2 * blockDim.x];
 	SA[tid + 3 * blockDim.x] = A[tid + 3 * blockDim.x];
-	//// transfer rotations to shared memory
-	//SROT[iRot + 0] = ROT[iRot + 0];
-	//SROT[iRot + 1] = ROT[iRot + 1];
-
-	//// transfer input data to shared memory
-	//SA[iInOut + 0] = A[iInOut + 0];
-	//SA[iInOut + 1] = A[iInOut + 1];
-	//SA[iInOut + 2] = A[iInOut + 2];
-	//SA[iInOut + 3] = A[iInOut + 3];
 
 	// make sure shared memory is written across all threads
 	__syncthreads();
@@ -63,13 +51,6 @@ __global__ void KernelFFT(float* A, float* ROT, uint* pCycles)
 		SA[ind2 + 3] = -sb2 * SROT[2 * r0 + 1] + sb3 * SROT[2 * r0];
 		__syncthreads();
 	}
-
-
-	//// write to output (dram)
-	//A[iInOut + 0] = SA[iInOut + 0];
-	//A[iInOut + 1] = SA[iInOut + 1];
-	//A[iInOut + 2] = SA[iInOut + 2];
-	//A[iInOut + 3] = SA[iInOut + 3];
 
 	A[tid] = SA[tid];
 	A[tid + blockDim.x] = SA[tid + blockDim.x];
