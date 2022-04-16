@@ -81,11 +81,6 @@
     <ClInclude Include="vendor\gcem\include\gcem_incl\trunc.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\entry.cpp" />
-    <ClInclude Include="src\revised\fft_cg_r2_2_s2_1024.cuh" />
-    <ClInclude Include="src\revised\fft_mk_cg_r2_2_1024.cuh" />
-  </ItemGroup>
-  <ItemGroup>
     <CudaCompile Include="src\Entry.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -163,6 +158,8 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
+      <CompileOut>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
+      <KeepDir>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\</KeepDir>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
