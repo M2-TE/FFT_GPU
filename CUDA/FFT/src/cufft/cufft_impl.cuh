@@ -1,3 +1,5 @@
+#include <cufft.h>
+
 float DoCUFFT(uint NX, uint nRepetitions, bool bPrintOutput = false)
 {
 #define BATCH 1

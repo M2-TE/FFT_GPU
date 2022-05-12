@@ -16,7 +16,6 @@
     <ClInclude Include="src\kernels\kernel_fft_new.cuh" />
     <ClInclude Include="src\kernels\kernel_launcher.cuh" />
     <ClInclude Include="src\kernels\kernel_launcher_new.cuh" />
-    <ClInclude Include="src\old\revised\fft_cg_2w.cuh" />
     <ClInclude Include="src\utils.cuh" />
     <ClInclude Include="vendor\gcem\include\gcem.hpp" />
     <ClInclude Include="vendor\gcem\include\gcem_incl\abs.hpp" />
@@ -95,7 +94,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -138,6 +137,13 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <CompileOut>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
+      <KeepDir>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\</KeepDir>
+      <NvccCompilation>compile</NvccCompilation>
+      <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
+      <ExtensibleWholeProgramCompilation>false</ExtensibleWholeProgramCompilation>
+      <Keep>true</Keep>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -162,6 +168,9 @@
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
       <CompileOut>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
       <KeepDir>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\</KeepDir>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <NvccCompilation>compile</NvccCompilation>
+      <Keep>true</Keep>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

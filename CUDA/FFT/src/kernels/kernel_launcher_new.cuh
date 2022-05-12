@@ -25,9 +25,10 @@ float ExecuteFFTNew(bool bPrintOutput = false, uint nRepetitions = 1u)
 	uint* pdCycles;
 
 	//input elements of N-point FFT.
-	for (uint i = 0; i < N; i++) {
-		pData[i] = i; // real
-		pData[i + N] = i; // imaginary
+	for (uint i = 0; i < N; i++)
+	{
+		pData[2 * i] = i;
+		pData[2 * i + 1] = i;
 	}
 
 	// TODO: fix the horrible loose type usage in these two loops (float/double/int/etc)
@@ -62,7 +63,7 @@ float ExecuteFFTNew(bool bPrintOutput = false, uint nRepetitions = 1u)
 	if (bPrintOutput) {
 		printf("The  outputs are: \n");
 		for (int l = 0; l < N; l++) {
-			//printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", l, pData[l], l + N, pData[l + N]);
+			printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, pData[2 * l], 2 * l + 1, pData[2 * l + 1]);
 		}
 
 		// min/max/avg cycles
