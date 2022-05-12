@@ -8,7 +8,7 @@
 #define D N/8 // D number of threads (one block), each thread processing an 8-point fft   
 __global__  void fft(float* A, float* ROT)
 {
-	__shared__ float SA[M], SB[M], SROT[N];
+	__shared__ float SA[M], SROT[N];
 	short tid = threadIdx.x;
 	short n = logf(N) / logf(8);
 
@@ -117,86 +117,63 @@ __global__  void fft(float* A, float* ROT)
 		__syncthreads();
 
 		//2nd stage:
-		SB[i0_R] = SA[i0_R] + SA[i2_R];
-		SB[i0_I] = SA[i0_I] + SA[i2_I];
-		SB[i2_R] = SA[i0_R] - SA[i2_R];
-		SB[i2_I] = SA[i0_I] - SA[i2_I];
+		sb_R = SA[i0_R] - SA[i2_R];
+		sb_I = SA[i0_I] - SA[i2_I];
+		SA[i0_R] = SA[i0_R] + SA[i2_R];
+		SA[i0_I] = SA[i0_I] + SA[i2_I];
+		SA[i2_R] = sb_R * SROT[2 * r4] + sb_I * SROT[2 * r4 + 1];
+		SA[i2_I] = -sb_R * SROT[2 * r4 + 1] + sb_I * SROT[2 * r4];
 
-		SB[i1_R] = SA[i1_R] + SA[i3_R];
-		SB[i1_I] = SA[i1_I] + SA[i3_I];
-		SB[i3_R] = SA[i1_R] - SA[i3_R];
-		SB[i3_I] = SA[i1_I] - SA[i3_I];
+		sb_R = SA[i1_R] - SA[i3_R];
+		sb_I = SA[i1_I] - SA[i3_I];
+		SA[i1_R] = SA[i1_R] + SA[i3_R];
+		SA[i1_I] = SA[i1_I] + SA[i3_I];
+		SA[i3_R] = sb_R * SROT[2 * r5] + sb_I * SROT[2 * r5 + 1];
+		SA[i3_I] = -sb_R * SROT[2 * r5 + 1] + sb_I * SROT[2 * r5];
 
-		SB[i4_R] = SA[i4_R] + SA[i6_R];
-		SB[i4_I] = SA[i4_I] + SA[i6_I];
-		SB[i6_R] = SA[i4_R] - SA[i6_R];
-		SB[i6_I] = SA[i4_I] - SA[i6_I];
+		sb_R = SA[i4_R] - SA[i6_R];
+		sb_I = SA[i4_I] - SA[i6_I];
+		SA[i4_R] = SA[i4_R] + SA[i6_R];
+		SA[i4_I] = SA[i4_I] + SA[i6_I];
+		SA[i6_R] = sb_R * SROT[2 * r6] + sb_I * SROT[2 * r6 + 1];
+		SA[i6_I] = -sb_R * SROT[2 * r6 + 1] + sb_I * SROT[2 * r6];
 
-		SB[i5_R] = SA[i5_R] + SA[i7_R];
-		SB[i5_I] = SA[i5_I] + SA[i7_I];
-		SB[i7_R] = SA[i5_R] - SA[i7_R];
-		SB[i7_I] = SA[i5_I] - SA[i7_I];
-
-		SA[i0_R] = SB[i0_R];
-		SA[i0_I] = SB[i0_I];
-		SA[i2_R] = SB[i2_R] * SROT[2 * r4] + SB[i2_I] * SROT[2 * r4 + 1];
-		SA[i2_I] = -SB[i2_R] * SROT[2 * r4 + 1] + SB[i2_I] * SROT[2 * r4];
-
-		SA[i1_R] = SB[i1_R];
-		SA[i1_I] = SB[i1_I];
-		SA[i3_R] = SB[i3_R] * SROT[2 * r5] + SB[i3_I] * SROT[2 * r5 + 1];
-		SA[i3_I] = -SB[i3_R] * SROT[2 * r5 + 1] + SB[i3_I] * SROT[2 * r5];
-
-		SA[i4_R] = SB[i4_R];
-		SA[i4_I] = SB[i4_I];
-		SA[i6_R] = SB[i6_R] * SROT[2 * r6] + SB[i6_I] * SROT[2 * r6 + 1];
-		SA[i6_I] = -SB[i6_R] * SROT[2 * r6 + 1] + SB[i6_I] * SROT[2 * r6];
-
-		SA[i5_R] = SB[i5_R];
-		SA[i5_I] = SB[i5_I];
-		SA[i7_R] = SB[i7_R] * SROT[2 * r7] + SB[i7_I] * SROT[2 * r7 + 1];
-		SA[i7_I] = -SB[i7_R] * SROT[2 * r7 + 1] + SB[i7_I] * SROT[2 * r7];
+		sb_R = SA[i5_R] - SA[i7_R];
+		sb_I = SA[i5_I] - SA[i7_I];
+		SA[i5_R] = SA[i5_R] + SA[i7_R];
+		SA[i5_I] = SA[i5_I] + SA[i7_I];
+		SA[i7_R] = sb_R * SROT[2 * r7] + sb_I * SROT[2 * r7 + 1];
+		SA[i7_I] = -sb_R * SROT[2 * r7 + 1] + sb_I * SROT[2 * r7];
 		__syncthreads();
+
 		//3rd stage:
-		SB[i0_R] = SA[i0_R] + SA[i1_R];
-		SB[i0_I] = SA[i0_I] + SA[i1_I];
-		SB[i1_R] = SA[i0_R] - SA[i1_R];
-		SB[i1_I] = SA[i0_I] - SA[i1_I];
+		sb_R = SA[i0_R] - SA[i1_R];
+		sb_I = SA[i0_I] - SA[i1_I];
+		SA[i0_R] = SA[i0_R] + SA[i1_R];
+		SA[i0_I] = SA[i0_I] + SA[i1_I];
+		SA[i1_R] = sb_R * SROT[2 * r8] + sb_I * SROT[2 * r8 + 1];
+		SA[i1_I] = -sb_R * SROT[2 * r8 + 1] + sb_I * SROT[2 * r8];
 
-		SB[i2_R] = SA[i2_R] + SA[i3_R];
-		SB[i2_I] = SA[i2_I] + SA[i3_I];
-		SB[i3_R] = SA[i2_R] - SA[i3_R];
-		SB[i3_I] = SA[i2_I] - SA[i3_I];
+		sb_R = SA[i2_R] - SA[i3_R];
+		sb_I = SA[i2_I] - SA[i3_I];
+		SA[i2_R] = SA[i2_R] + SA[i3_R];
+		SA[i2_I] = SA[i2_I] + SA[i3_I];
+		SA[i3_R] = sb_R * SROT[2 * r9] + sb_I * SROT[2 * r9 + 1];
+		SA[i3_I] = -sb_R * SROT[2 * r9 + 1] + sb_I * SROT[2 * r9];
 
-		SB[i4_R] = SA[i4_R] + SA[i5_R];
-		SB[i4_I] = SA[i4_I] + SA[i5_I];
-		SB[i5_R] = SA[i4_R] - SA[i5_R];
-		SB[i5_I] = SA[i4_I] - SA[i5_I];
+		sb_R = SA[i4_R] - SA[i5_R];
+		sb_I = SA[i4_I] - SA[i5_I];
+		SA[i4_R] = SA[i4_R] + SA[i5_R];
+		SA[i4_I] = SA[i4_I] + SA[i5_I];
+		SA[i5_R] = sb_R * SROT[2 * r10] + sb_I * SROT[2 * r10 + 1];
+		SA[i5_I] = -sb_R * SROT[2 * r10 + 1] + sb_I * SROT[2 * r10];
 
-		SB[i6_R] = SA[i6_R] + SA[i7_R];
-		SB[i6_I] = SA[i6_I] + SA[i7_I];
-		SB[i7_R] = SA[i6_R] - SA[i7_R];
-		SB[i7_I] = SA[i6_I] - SA[i7_I];
-
-		SA[i0_R] = SB[i0_R];
-		SA[i0_I] = SB[i0_I];
-		SA[i1_R] = SB[i1_R] * SROT[2 * r8] + SB[i1_I] * SROT[2 * r8 + 1];
-		SA[i1_I] = -SB[i1_R] * SROT[2 * r8 + 1] + SB[i1_I] * SROT[2 * r8];
-
-		SA[i2_R] = SB[i2_R];
-		SA[i2_I] = SB[i2_I];
-		SA[i3_R] = SB[i3_R] * SROT[2 * r9] + SB[i3_I] * SROT[2 * r9 + 1];
-		SA[i3_I] = -SB[i3_R] * SROT[2 * r9 + 1] + SB[i3_I] * SROT[2 * r9];
-
-		SA[i4_R] = SB[i4_R];
-		SA[i4_I] = SB[i4_I];
-		SA[i5_R] = SB[i5_R] * SROT[2 * r10] + SB[i5_I] * SROT[2 * r10 + 1];
-		SA[i5_I] = -SB[i5_R] * SROT[2 * r10 + 1] + SB[i5_I] * SROT[2 * r10];
-
-		SA[i6_R] = SB[i6_R];
-		SA[i6_I] = SB[i6_I];
-		SA[i7_R] = SB[i7_R] * SROT[2 * r11] + SB[i7_I] * SROT[2 * r11 + 1];
-		SA[i7_I] = -SB[i7_R] * SROT[2 * r11 + 1] + SB[i7_I] * SROT[2 * r11];
+		sb_R = SA[i6_R] - SA[i7_R];
+		sb_I = SA[i6_I] - SA[i7_I];
+		SA[i6_R] = SA[i6_R] + SA[i7_R];
+		SA[i6_I] = SA[i6_I] + SA[i7_I];
+		SA[i7_R] = sb_R * SROT[2 * r11] + sb_I * SROT[2 * r11 + 1];
+		SA[i7_I] = -sb_R * SROT[2 * r11 + 1] + sb_I * SROT[2 * r11];
 		__syncthreads();
 
 	}
