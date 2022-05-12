@@ -1,3 +1,8 @@
+#include <device_launch_parameters.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <math.h>
+
 #define N 512 // N complex numbers
 #define M 2*N // M 32-bit floats (real, imaginary)
 #define D N/8 // D number of threads (one block), each thread processing an 8-point fft   
@@ -33,26 +38,6 @@ __global__  void fft(float* A, float* ROT)
 	SA[tid + 14 * blockDim.x] = A[tid + 14 * blockDim.x];
 	SA[tid + 15 * blockDim.x] = A[tid + 15 * blockDim.x];
 
-	/*
-	0R	0
-	0I	1
-	1R	2
-	1I	3
-		...
-	7I	15
-
-	//1st stage:
-	temp = SA[0] + SA[8];
-	SA[8] = SA[0] - SA[8];
-	SA[0] = temp;
-
-	...
-	and so on
-
-	temp = SA[4] + SA[12];
-	// simplified here on phi=2
-	*/
-
 	__syncthreads();
 
 	short ind0, ind1, ind2, ind3, ind4, ind5, ind6, ind7;
@@ -69,6 +54,26 @@ __global__  void fft(float* A, float* ROT)
 		ind5 = ind4 + p;//ind0+5p
 		ind6 = ind5 + p;//ind0+6p
 		ind7 = ind6 + p;//ind0+7p
+
+		// imaginary
+#define i0_R _ind0
+#define i1_R _ind0 +		p
+#define i2_R _ind0 + 2 * p
+#define i3_R _ind0 + 3 * p
+#define i4_R _ind0 + 4 * p
+#define i5_R _ind0 + 5 * p
+#define i6_R _ind0 + 6 * p
+#define i7_R _ind0 + 7 * p
+
+		// real
+#define i0_I _ind0		  + 1
+#define i1_I _ind0 +		p + 1
+#define i2_I _ind0 + 2 * p + 1
+#define i3_I _ind0 + 3 * p + 1
+#define i4_I _ind0 + 4 * p + 1
+#define i5_I _ind0 + 5 * p + 1
+#define i6_I _ind0 + 6 * p + 1
+#define i6_I _ind0 + 7 * p + 1
 
 		r0 = (tid % (1 << 3 * (n - s))) * (1 << 3 * (s - 1));
 		r1 = r0 + (N / 8);
@@ -251,8 +256,6 @@ __global__  void fft(float* A, float* ROT)
 }
 
 
-#include  <stdio.h> 
-#include  <math.h>
 int  main()
 {
 
@@ -302,8 +305,8 @@ int  main()
 		printf("n: %d, index: %d, step: %d\n", b + 0 * p, b, p);
 	}
 
-	//printf("The  outputs are: \n");
-	//for (int l = 0; l < N; l++)
-	//	printf("RE:A[%d]=%f\t\t\t, IM: A[%d]=%f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
+	printf("The  outputs are: \n");
+	for (int l = 0; l < N; l++)
+		printf("RE:A[%d]=%f\t\t\t, IM: A[%d]=%f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
 
 }
