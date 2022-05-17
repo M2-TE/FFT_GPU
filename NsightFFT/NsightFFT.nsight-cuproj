@@ -24,23 +24,18 @@
             "path": "6.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "7.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "8.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "9.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "10.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "11.nsight-cuprof-report"
         },
         {
@@ -48,6 +43,114 @@
         },
         {
             "path": "13.nsight-cuprof-report"
+        },
+        {
+            "path": "40.nsight-cuprof-report"
+        },
+        {
+            "path": "41.nsight-cuprof-report"
+        },
+        {
+            "path": "42.nsight-cuprof-report"
+        },
+        {
+            "path": "43.nsight-cuprof-report"
+        },
+        {
+            "path": "44.nsight-cuprof-report"
+        },
+        {
+            "path": "45.nsight-cuprof-report"
+        },
+        {
+            "path": "46.nsight-cuprof-report"
+        },
+        {
+            "path": "47.nsight-cuprof-report"
+        },
+        {
+            "path": "48.nsight-cuprof-report"
+        },
+        {
+            "path": "49.nsight-cuprof-report"
+        },
+        {
+            "path": "50.nsight-cuprof-report"
+        },
+        {
+            "path": "51.nsight-cuprof-report"
+        },
+        {
+            "path": "52.nsight-cuprof-report"
+        },
+        {
+            "path": "53.nsight-cuprof-report"
+        },
+        {
+            "path": "54.nsight-cuprof-report"
+        },
+        {
+            "path": "55.nsight-cuprof-report"
+        },
+        {
+            "path": "56.nsight-cuprof-report"
+        },
+        {
+            "path": "57.nsight-cuprof-report"
+        },
+        {
+            "path": "58.nsight-cuprof-report"
+        },
+        {
+            "path": "59.nsight-cuprof-report"
+        },
+        {
+            "path": "60.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "61.nsight-cuprof-report"
+        },
+        {
+            "path": "62.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "63.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "64.nsight-cuprof-report"
+        },
+        {
+            "path": "65.nsight-cuprof-report"
+        },
+        {
+            "path": "66.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "67.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "68.nsight-cuprof-report"
+        },
+        {
+            "path": "69.nsight-cuprof-report"
+        },
+        {
+            "path": "70.nsight-cuprof-report"
+        },
+        {
+            "path": "71.nsight-cuprof-report"
+        },
+        {
+            "path": "72.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "73.nsight-cuprof-report"
         }
     ],
     "launcher": {
@@ -86,10 +189,10 @@
         "platform/win32/arguments": "",
         "platform/win32/autoconnect": true,
         "platform/win32/environment": "",
-        "platform/win32/executable": "M:/Repositories/FFT_GPU/CUDA/bin/Windows/Release/FFT.exe",
+        "platform/win32/executable": "M:/Repositories/FFT_GPU/CUDA/OLD_FFT/bin/Windows/Release/OLD_FFT.exe",
         "platform/win32/executable/history": [
-            "M:/Repositories/FFT_GPU/CUDA/bin/Windows/Release/FFT.exe",
-            "M:/Repositories/FFT_GPU/CUDA/OLD_FFT/bin/Windows/Release/OLD_FFT.exe"
+            "M:/Repositories/FFT_GPU/CUDA/OLD_FFT/bin/Windows/Release/OLD_FFT.exe",
+            "M:/Repositories/FFT_GPU/CUDA/bin/Windows/Release/FFT.exe"
         ],
         "platform/win32/workingdir": "",
         "platform/windows/device": "localhost"
