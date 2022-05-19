@@ -132,6 +132,9 @@
     <CudaCompile>
       <FastMath>true</FastMath>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <Keep>true</Keep>
+      <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
+      <NvccCompilation>compile</NvccCompilation>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -152,6 +155,9 @@
     <CudaCompile>
       <FastMath>true</FastMath>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <Keep>true</Keep>
+      <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
+      <NvccCompilation>compile</NvccCompilation>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -138,8 +138,8 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
-      <CompileOut>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <KeepDir>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\</KeepDir>
+      <CompileOut>$(CudaIntDirFullPath)\%(Filename)%(Extension).obj</CompileOut>
+      <KeepDir>$(CudaIntDir)</KeepDir>
       <NvccCompilation>compile</NvccCompilation>
       <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
       <ExtensibleWholeProgramCompilation>false</ExtensibleWholeProgramCompilation>
@@ -166,8 +166,8 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
-      <CompileOut>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\%(Filename)%(Extension).obj</CompileOut>
-      <KeepDir>$(SolutionDir)bin-int\$(SDKIdentifier)\$(Configuration)\</KeepDir>
+      <CompileOut>$(CudaIntDirFullPath)\%(Filename)%(Extension).obj</CompileOut>
+      <KeepDir>$(CudaIntDir)</KeepDir>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
       <NvccCompilation>compile</NvccCompilation>
       <Keep>true</Keep>
