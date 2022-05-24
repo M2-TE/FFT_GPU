@@ -110,7 +110,6 @@
             "path": "62.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "63.nsight-cuprof-report"
         },
         {
@@ -144,7 +143,6 @@
             "path": "73.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "78.nsight-cuprof-report"
         },
         {
@@ -152,6 +150,84 @@
         },
         {
             "path": "80.nsight-cuprof-report"
+        },
+        {
+            "path": "81.nsight-cuprof-report"
+        },
+        {
+            "path": "82.nsight-cuprof-report"
+        },
+        {
+            "path": "83.nsight-cuprof-report"
+        },
+        {
+            "path": "84.nsight-cuprof-report"
+        },
+        {
+            "path": "85.nsight-cuprof-report"
+        },
+        {
+            "path": "86.nsight-cuprof-report"
+        },
+        {
+            "path": "87.nsight-cuprof-report"
+        },
+        {
+            "path": "88.nsight-cuprof-report"
+        },
+        {
+            "path": "89.nsight-cuprof-report"
+        },
+        {
+            "path": "90.nsight-cuprof-report"
+        },
+        {
+            "path": "91.nsight-cuprof-report"
+        },
+        {
+            "path": "92.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "8point_NoShared.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "8point_Shared.nsight-cuprof-report"
+        },
+        {
+            "path": "93.nsight-cuprof-report"
+        },
+        {
+            "path": "94.nsight-cuprof-report"
+        },
+        {
+            "path": "95.nsight-cuprof-report"
+        },
+        {
+            "path": "96.nsight-cuprof-report"
+        },
+        {
+            "path": "97.nsight-cuprof-report"
+        },
+        {
+            "path": "98.nsight-cuprof-report"
+        },
+        {
+            "path": "99.nsight-cuprof-report"
+        },
+        {
+            "path": "100.nsight-cuprof-report"
+        },
+        {
+            "path": "101.nsight-cuprof-report"
+        },
+        {
+            "path": "102.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "8point_Shared_INOUT.nsight-cuprof-report"
         }
     ],
     "launcher": {
