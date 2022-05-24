@@ -138,17 +138,33 @@ __device__ void execute_4point_fft(float* A)
 __device__ void execute_2point_fft(float* A)
 {
 
+	const unsigned int tid = threadIdx.x;
+	const unsigned int N = 2;
+	const unsigned int step = N * 2;
+
+	float x0 = A[tid * step + 0];
+	float x1 = A[tid * step + 1];
+	float x2 = A[tid * step + 2];
+	float x3 = A[tid * step + 3];
+
+	// stage 1
+	// butterflies
+	A[tid * step + 0] = x0 + x2;
+	A[tid * step + 1] = x1 + x3;
+	A[tid * step + 2] = x0 - x2;
+	A[tid * step + 3] = x1 - x3;
 }
 
 __global__  void fft(float* A)
 {
 	//execute_8point_fft(A);
-	execute_4point_fft(A);
+	//execute_4point_fft(A);
+	execute_2point_fft(A);
 }
 
 int  main()
 {
-	static constexpr size_t N = 4;
+	static constexpr size_t N = 2;
 
 	float A[2 * N];
 	float* Ad;
@@ -161,6 +177,11 @@ int  main()
 		A[2 * i] = i;
 		A[2 * i + 1] = i;
 	}
+	A[0] = 1.0f;
+	A[1] = 3.0f;
+	A[2] = 2.0f;
+	A[3] = 6.0f;
+	
 
 	cudaMalloc((void**)&Ad, memsize);
 
