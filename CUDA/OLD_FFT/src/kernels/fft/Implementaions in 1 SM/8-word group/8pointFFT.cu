@@ -84,6 +84,7 @@ __device__ void execute_8point_fft(float* A)
 	x11 = tempI;
 
 	// stage 3
+	// butterflies
 	A[tid * step + 0] = x0 + x2;
 	A[tid * step + 1] = x1 + x3;
 	A[tid * step + 2] = x8 + x10;
@@ -104,15 +105,50 @@ __device__ void execute_8point_fft(float* A)
 	A[tid * step + 14] = x12 - x14;
 	A[tid * step + 15] = x13 - x15;
 }
+__device__ void execute_4point_fft(float* A)
+{
+	const unsigned int tid = threadIdx.x;
+	const unsigned int N = 4;
+	const unsigned int step = N * 2;
+
+	// stage 1
+	// butterflies
+	float x0 = A[tid * step + 0] + A[tid * step + 4]; // R
+	float x1 = A[tid * step + 1] + A[tid * step + 5]; // I
+	float x4 = A[tid * step + 0] - A[tid * step + 4]; // R
+	float x5 = A[tid * step + 1] - A[tid * step + 5]; // I
+
+	float x2 = A[tid * step + 2] + A[tid * step + 6]; // R
+	float x3 = A[tid * step + 3] + A[tid * step + 7]; // I
+	float x6 = A[tid * step + 3] - A[tid * step + 7]; // R (swapped)
+	float x7 = A[tid * step + 6] - A[tid * step + 2]; // I (swapped)
+
+	// stage 2
+	// butterflies
+	A[tid * step + 0] = x0 + x2;
+	A[tid * step + 1] = x1 + x3;
+	A[tid * step + 2] = x4 + x6;
+	A[tid * step + 3] = x5 + x7;
+
+	A[tid * step + 4] = x0 - x2;
+	A[tid * step + 5] = x1 - x3;
+	A[tid * step + 6] = x4 - x6;
+	A[tid * step + 7] = x5 - x7;
+}
+__device__ void execute_2point_fft(float* A)
+{
+
+}
 
 __global__  void fft(float* A)
 {
-	execute_8point_fft(A);
+	//execute_8point_fft(A);
+	execute_4point_fft(A);
 }
 
 int  main()
 {
-#define N 8
+	static constexpr size_t N = 4;
 
 	float A[2 * N];
 	float* Ad;
