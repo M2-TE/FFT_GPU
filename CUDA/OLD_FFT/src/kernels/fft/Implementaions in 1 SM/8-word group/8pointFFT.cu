@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 
-__device__ void execute_8point_fft_shared(float* A)
+__device__ void execute_8point_fft_shared(float* IN, float* OUT)
 {
 	__shared__ float S[16];
 
@@ -13,23 +13,24 @@ __device__ void execute_8point_fft_shared(float* A)
 	const unsigned int step = wordSize * 2;
 
 	// TODO: make this read data in coalescence (irrelevant with only one active thread)
-	S[tid * step + 0] = A[tid * step + 0];
-	S[tid * step + 1] = A[tid * step + 1];
-	S[tid * step + 2] = A[tid * step + 2];
-	S[tid * step + 3] = A[tid * step + 3];
-	S[tid * step + 4] = A[tid * step + 4];
-	S[tid * step + 5] = A[tid * step + 5];
-	S[tid * step + 6] = A[tid * step + 6];
-	S[tid * step + 7] = A[tid * step + 7];
-	S[tid * step + 8] = A[tid * step + 8];
-	S[tid * step + 9] = A[tid * step + 9];
-	S[tid * step + 10] = A[tid * step + 10];
-	S[tid * step + 11] = A[tid * step + 11];
-	S[tid * step + 12] = A[tid * step + 12];
-	S[tid * step + 13] = A[tid * step + 13];
-	S[tid * step + 14] = A[tid * step + 14];
-	S[tid * step + 15] = A[tid * step + 15];
-	S[tid * step + 16] = A[tid * step + 16];
+	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
+	S[tid * step +  0] = IN[tid * step +  0];
+	S[tid * step +  1] = IN[tid * step +  1];
+	S[tid * step +  2] = IN[tid * step +  2];
+	S[tid * step +  3] = IN[tid * step +  3];
+	S[tid * step +  4] = IN[tid * step +  4];
+	S[tid * step +  5] = IN[tid * step +  5];
+	S[tid * step +  6] = IN[tid * step +  6];
+	S[tid * step +  7] = IN[tid * step +  7];
+	S[tid * step +  8] = IN[tid * step +  8];
+	S[tid * step +  9] = IN[tid * step +  9];
+	S[tid * step + 10] = IN[tid * step + 10];
+	S[tid * step + 11] = IN[tid * step + 11];
+	S[tid * step + 12] = IN[tid * step + 12];
+	S[tid * step + 13] = IN[tid * step + 13];
+	S[tid * step + 14] = IN[tid * step + 14];
+	S[tid * step + 15] = IN[tid * step + 15];
+	S[tid * step + 16] = IN[tid * step + 16];
 
 	// registers for the main data inbetween stages
 	float x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
@@ -135,25 +136,25 @@ __device__ void execute_8point_fft_shared(float* A)
 
 	// TODO
 	// Memory Export to global memory (TODO: same as input, need coalescence here)
-	A[tid * step +  0] = S[tid * step +  0];
-	A[tid * step +  1] = S[tid * step +  1];
-	A[tid * step +  2] = S[tid * step +  2];
-	A[tid * step +  3] = S[tid * step +  3];
-	A[tid * step +  4] = S[tid * step +  4];
-	A[tid * step +  5] = S[tid * step +  5];
-	A[tid * step +  6] = S[tid * step +  6];
-	A[tid * step +  7] = S[tid * step +  7];
-	A[tid * step +  8] = S[tid * step +  8];
-	A[tid * step +  9] = S[tid * step +  9];
-	A[tid * step + 10] = S[tid * step + 10];
-	A[tid * step + 11] = S[tid * step + 11];
-	A[tid * step + 12] = S[tid * step + 12];
-	A[tid * step + 13] = S[tid * step + 13];
-	A[tid * step + 14] = S[tid * step + 14];
-	A[tid * step + 15] = S[tid * step + 15];
-	A[tid * step + 16] = S[tid * step + 16];
+	OUT[tid * step +  0] = S[tid * step +  0];
+	OUT[tid * step +  1] = S[tid * step +  1];
+	OUT[tid * step +  2] = S[tid * step +  2];
+	OUT[tid * step +  3] = S[tid * step +  3];
+	OUT[tid * step +  4] = S[tid * step +  4];
+	OUT[tid * step +  5] = S[tid * step +  5];
+	OUT[tid * step +  6] = S[tid * step +  6];
+	OUT[tid * step +  7] = S[tid * step +  7];
+	OUT[tid * step +  8] = S[tid * step +  8];
+	OUT[tid * step +  9] = S[tid * step +  9];
+	OUT[tid * step + 10] = S[tid * step + 10];
+	OUT[tid * step + 11] = S[tid * step + 11];
+	OUT[tid * step + 12] = S[tid * step + 12];
+	OUT[tid * step + 13] = S[tid * step + 13];
+	OUT[tid * step + 14] = S[tid * step + 14];
+	OUT[tid * step + 15] = S[tid * step + 15];
+	OUT[tid * step + 16] = S[tid * step + 16];
 }
-__device__ void execute_8point_fft(float* A)
+__device__ void execute_8point_fft(float* IN)
 {
 	const unsigned int tid = threadIdx.x;
 	const float coef = sqrtf(2.0f) / 2.0f;
@@ -162,25 +163,25 @@ __device__ void execute_8point_fft(float* A)
 
 	// stage 1
 	// butterflies
-	float x0 = A[tid * step + 0] + A[tid * step + 8]; // R
-	float x1 = A[tid * step + 1] + A[tid * step + 9]; // I
-	float x8 = A[tid * step + 0] - A[tid * step + 8]; // R
-	float x9 = A[tid * step + 1] - A[tid * step + 9]; // I
+	float x0 = IN[tid * step + 0] + IN[tid * step + 8]; // R
+	float x1 = IN[tid * step + 1] + IN[tid * step + 9]; // I
+	float x8 = IN[tid * step + 0] - IN[tid * step + 8]; // R
+	float x9 = IN[tid * step + 1] - IN[tid * step + 9]; // I
 
-	float x2 = A[tid * step + 2] + A[tid * step + 10]; // R
-	float x3 = A[tid * step + 3] + A[tid * step + 11]; // I
-	float x10 = A[tid * step + 2] - A[tid * step + 10]; // R
-	float x11 = A[tid * step + 3] - A[tid * step + 11]; // I
+	float x2 = IN[tid * step + 2] + IN[tid * step + 10]; // R
+	float x3 = IN[tid * step + 3] + IN[tid * step + 11]; // I
+	float x10 = IN[tid * step + 2] - IN[tid * step + 10]; // R
+	float x11 = IN[tid * step + 3] - IN[tid * step + 11]; // I
 
-	float x4 = A[tid * step + 4] + A[tid * step + 12]; // R
-	float x5 = A[tid * step + 5] + A[tid * step + 13]; // I
-	float x12 = A[tid * step + 5] - A[tid * step + 13]; // R (swapped)
-	float x13 = A[tid * step + 12] - A[tid * step + 4]; // I (swapped)
+	float x4 = IN[tid * step + 4] + IN[tid * step + 12]; // R
+	float x5 = IN[tid * step + 5] + IN[tid * step + 13]; // I
+	float x12 = IN[tid * step + 5] - IN[tid * step + 13]; // R (swapped)
+	float x13 = IN[tid * step + 12] - IN[tid * step + 4]; // I (swapped)
 
-	float x6 = A[tid * step + 6] + A[tid * step + 14]; // R
-	float x7 = A[tid * step + 7] + A[tid * step + 15]; // I
-	float x14 = A[tid * step + 6] - A[tid * step + 14]; // R
-	float x15 = A[tid * step + 7] - A[tid * step + 15]; // I
+	float x6 = IN[tid * step + 6] + IN[tid * step + 14]; // R
+	float x7 = IN[tid * step + 7] + IN[tid * step + 15]; // I
+	float x14 = IN[tid * step + 6] - IN[tid * step + 14]; // R
+	float x15 = IN[tid * step + 7] - IN[tid * step + 15]; // I
 
 	// rotations
 	x10 = x10 * coef;
@@ -234,27 +235,27 @@ __device__ void execute_8point_fft(float* A)
 
 	// stage 3
 	// butterflies
-	A[tid * step + 0] = x0 + x2;
-	A[tid * step + 1] = x1 + x3;
-	A[tid * step + 2] = x8 + x10;
-	A[tid * step + 3] = x9 + x11;
+	IN[tid * step + 0] = x0 + x2;
+	IN[tid * step + 1] = x1 + x3;
+	IN[tid * step + 2] = x8 + x10;
+	IN[tid * step + 3] = x9 + x11;
 
-	A[tid * step + 4] = x4 + x6;
-	A[tid * step + 5] = x5 + x7;
-	A[tid * step + 6] = x12 + x14;
-	A[tid * step + 7] = x13 + x15;
+	IN[tid * step + 4] = x4 + x6;
+	IN[tid * step + 5] = x5 + x7;
+	IN[tid * step + 6] = x12 + x14;
+	IN[tid * step + 7] = x13 + x15;
 
-	A[tid * step + 8] = x0 - x2;
-	A[tid * step + 9] = x1 - x3;
-	A[tid * step + 10] = x8 - x10;
-	A[tid * step + 11] = x9 - x11;
+	IN[tid * step + 8] = x0 - x2;
+	IN[tid * step + 9] = x1 - x3;
+	IN[tid * step + 10] = x8 - x10;
+	IN[tid * step + 11] = x9 - x11;
 
-	A[tid * step + 12] = x4 - x6;
-	A[tid * step + 13] = x5 - x7;
-	A[tid * step + 14] = x12 - x14;
-	A[tid * step + 15] = x13 - x15;
+	IN[tid * step + 12] = x4 - x6;
+	IN[tid * step + 13] = x5 - x7;
+	IN[tid * step + 14] = x12 - x14;
+	IN[tid * step + 15] = x13 - x15;
 }
-__device__ void execute_4point_fft(float* A)
+__device__ void execute_4point_fft(float* IN)
 {
 	const unsigned int tid = threadIdx.x;
 	const unsigned int wordSize = 4;
@@ -262,29 +263,29 @@ __device__ void execute_4point_fft(float* A)
 
 	// stage 1
 	// butterflies
-	float x0 = A[tid * step + 0] + A[tid * step + 4]; // R
-	float x1 = A[tid * step + 1] + A[tid * step + 5]; // I
-	float x4 = A[tid * step + 0] - A[tid * step + 4]; // R
-	float x5 = A[tid * step + 1] - A[tid * step + 5]; // I
+	float x0 = IN[tid * step + 0] + IN[tid * step + 4]; // R
+	float x1 = IN[tid * step + 1] + IN[tid * step + 5]; // I
+	float x4 = IN[tid * step + 0] - IN[tid * step + 4]; // R
+	float x5 = IN[tid * step + 1] - IN[tid * step + 5]; // I
 
-	float x2 = A[tid * step + 2] + A[tid * step + 6]; // R
-	float x3 = A[tid * step + 3] + A[tid * step + 7]; // I
-	float x6 = A[tid * step + 3] - A[tid * step + 7]; // R (swapped)
-	float x7 = A[tid * step + 6] - A[tid * step + 2]; // I (swapped)
+	float x2 = IN[tid * step + 2] + IN[tid * step + 6]; // R
+	float x3 = IN[tid * step + 3] + IN[tid * step + 7]; // I
+	float x6 = IN[tid * step + 3] - IN[tid * step + 7]; // R (swapped)
+	float x7 = IN[tid * step + 6] - IN[tid * step + 2]; // I (swapped)
 
 	// stage 2
 	// butterflies
-	A[tid * step + 0] = x0 + x2;
-	A[tid * step + 1] = x1 + x3;
-	A[tid * step + 2] = x4 + x6;
-	A[tid * step + 3] = x5 + x7;
+	IN[tid * step + 0] = x0 + x2;
+	IN[tid * step + 1] = x1 + x3;
+	IN[tid * step + 2] = x4 + x6;
+	IN[tid * step + 3] = x5 + x7;
 
-	A[tid * step + 4] = x0 - x2;
-	A[tid * step + 5] = x1 - x3;
-	A[tid * step + 6] = x4 - x6;
-	A[tid * step + 7] = x5 - x7;
+	IN[tid * step + 4] = x0 - x2;
+	IN[tid * step + 5] = x1 - x3;
+	IN[tid * step + 6] = x4 - x6;
+	IN[tid * step + 7] = x5 - x7;
 }
-__device__ void execute_2point_fft(float* A)
+__device__ void execute_2point_fft(float* IN)
 {
 	//__shared__ float S[4];
 	const unsigned int tid = threadIdx.x;
@@ -294,25 +295,25 @@ __device__ void execute_2point_fft(float* A)
 	// only really need to store 0 and 1 in registers
 	// but compiler puts em all in registers anyways 
 	// and this is just more readable:
-	float x0 = A[tid * step + 0];
-	float x1 = A[tid * step + 1];
-	float x2 = A[tid * step + 2];
-	float x3 = A[tid * step + 3];
+	float x0 = IN[tid * step + 0];
+	float x1 = IN[tid * step + 1];
+	float x2 = IN[tid * step + 2];
+	float x3 = IN[tid * step + 3];
 
 	// stage 1
 	// butterflies
-	A[tid * step + 0] = x0 + x2;
-	A[tid * step + 1] = x1 + x3;
-	A[tid * step + 2] = x0 - x2;
-	A[tid * step + 3] = x1 - x3;
+	IN[tid * step + 0] = x0 + x2;
+	IN[tid * step + 1] = x1 + x3;
+	IN[tid * step + 2] = x0 - x2;
+	IN[tid * step + 3] = x1 - x3;
 }
 
-__global__ void fft(float* A)
+__global__ void fft(float* IN, float* OUT)
 {
-	execute_8point_fft_shared(A);
-	//execute_8point_fft(A);
-	//execute_4point_fft(A);
-	//execute_2point_fft(A);
+	execute_8point_fft_shared(IN, OUT);
+	//execute_8point_fft(IN);
+	//execute_4point_fft(IN);
+	//execute_2point_fft(IN);
 }
 
 int main()
@@ -330,7 +331,7 @@ int main()
 		A[2 * i] = i;
 		A[2 * i + 1] = i;
 	}
-	
+
 
 	cudaMalloc((void**)&Ad, memsize);
 
@@ -338,7 +339,7 @@ int main()
 
 	dim3 gridDim(1, 1);
 	dim3 blockDim(1, 1);
-	fft <<<gridDim, blockDim>>> (Ad);
+	fft <<<gridDim, blockDim>>> (Ad, Ad);
 	cudaMemcpy(A, Ad, memsize, cudaMemcpyDeviceToHost);
 
 
