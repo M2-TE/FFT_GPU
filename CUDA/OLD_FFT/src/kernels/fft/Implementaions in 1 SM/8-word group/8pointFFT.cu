@@ -316,15 +316,11 @@ __global__ void fft(float* IN, float* OUT)
 	//execute_2point_fft(IN);
 }
 
-// Gets rid of false flags with IntelliSense
-#ifdef __CUDACC__
-	#define KERNEL_GRID(grid, block) <<< grid, block >>>
-#else
-	#define KERNEL_GRID(grid, block)
-#endif
+#define INPUT_SIZE 16
+#define WORD_SIZE 8
 int main()
 {
-	static constexpr size_t N = 8;
+	static constexpr size_t N = INPUT_SIZE;
 
 	float A[2 * N];
 	float* Ad;
@@ -343,8 +339,15 @@ int main()
 
 	cudaMemcpy(Ad, A, memsize, cudaMemcpyHostToDevice);
 
-	dim3 gridDim(1, 1);
-	dim3 blockDim(1, 1);
+
+	// Gets rid of false flags with IntelliSense
+#ifdef __CUDACC__
+	#define KERNEL_GRID(grid, block) <<< grid, block >>>
+#else
+	#define KERNEL_GRID(grid, block)
+#endif
+	dim3 gridDim(1, 1, 1);
+	dim3 blockDim(INPUT_SIZE / WORD_SIZE, 1, 1);
 	fft KERNEL_GRID(gridDim, blockDim)(Ad, Ad);
 	cudaMemcpy(A, Ad, memsize, cudaMemcpyDeviceToHost);
 
