@@ -4,6 +4,20 @@
 #include <math.h>
 
 typedef unsigned int uint;
+
+template <uint nBits = 7>
+__device__ uint reverse_bits(uint val)
+{
+	// NOTE: standard bit reversal either doesnt work on gpu
+	// or is just really unperformant, so i used the CUDA intrinsic __brev() instead
+	// however, it always operates on the full 32 bits of a value, so it needs to be manually adjusted
+	// to work with only x bits (x = 7 bits in the 64-fft case)
+	
+	// shift bits to the major part
+	// to only reverse a selected range of bits
+	return __brev(val << (sizeof(uint) * 8 - nBits));
+}
+
 __device__ void execute_8point_fft(float* IN)
 {
 	const unsigned int tid = threadIdx.x;
@@ -269,16 +283,18 @@ __device__ void execute_8point_fft_shared(float* S)
 	}
 }
 
-__device__ uint reverse_bits(uint val)
-{
-	// TODO
-}
+
 
 __device__ void mem_transfer(float* src, float* dst)
 {
 	const uint wordSize = 8;
 	const uint step = wordSize * 2;
 	const uint tid = threadIdx.x;
+
+	uint val = 0b0100'0001;
+	uint res = reverse_bits(val);
+	printf("Val: %d\n", val);
+	printf("Res: %d\n", res);
 
 	// TODO: make this read data in coalescence (irrelevant with only one active thread)
 	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
@@ -289,7 +305,7 @@ __device__ void mem_transfer(float* src, float* dst)
 
 __global__ void fft(float* IN, float* OUT)
 {
-	__shared__ float S[16];
+	__shared__ float S[64];
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
@@ -314,6 +330,10 @@ __global__ void fft(float* IN, float* OUT)
 #define WORD_SIZE 8
 int main()
 {
+	//uint val = 0b0100'0001;
+	//printf("%d\n", reverse_bits<7>(val));
+	//return;
+
 	static constexpr size_t N = INPUT_SIZE;
 
 	float A[2 * N];
