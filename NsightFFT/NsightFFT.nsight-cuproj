@@ -228,6 +228,18 @@
         {
             "is_open": true,
             "path": "8point_Shared_INOUT.nsight-cuprof-report"
+        },
+        {
+            "path": "103.nsight-cuprof-report"
+        },
+        {
+            "path": "104.nsight-cuprof-report"
+        },
+        {
+            "path": "105.nsight-cuprof-report"
+        },
+        {
+            "path": "106.nsight-cuprof-report"
         }
     ],
     "launcher": {
