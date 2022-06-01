@@ -5,7 +5,7 @@
 
 typedef unsigned int uint;
 
-template <uint nBits = 7>
+template <uint nBits>
 __device__ uint reverse_bits(uint val)
 {
 	// NOTE: standard bit reversal either doesnt work on gpu
@@ -17,8 +17,21 @@ __device__ uint reverse_bits(uint val)
 	// to only reverse a selected range of bits
 	return __brev(val << (sizeof(uint) * 8 - nBits));
 }
+__device__ void mem_transfer(float* src, float* dst)
+{
+	const uint wordSize = 8;
+	const uint step = wordSize * 2;
+	const uint tid = threadIdx.x;
 
-__device__ void execute_8point_fft(float* IN)
+	// TODO: make this read data in coalescence (irrelevant with only one active thread)
+	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
+	for (uint i = 0; i < 16; i++) {
+		dst[tid * step + i] = src[tid * step + i];
+	}
+}
+
+/// deprecated atm
+__device__ void execute_8point_fft_deprecated(float* IN)
 {
 	const unsigned int tid = threadIdx.x;
 	const float coef = sqrtf(2.0f) / 2.0f;
@@ -119,7 +132,7 @@ __device__ void execute_8point_fft(float* IN)
 	IN[tid * step + 14] = x12 - x14;
 	IN[tid * step + 15] = x13 - x15;
 }
-__device__ void execute_4point_fft(float* IN)
+__device__ void execute_4point_fft_deprecated(float* IN)
 {
 	const unsigned int tid = threadIdx.x;
 	const unsigned int wordSize = 4;
@@ -149,7 +162,7 @@ __device__ void execute_4point_fft(float* IN)
 	IN[tid * step + 6] = x4 - x6;
 	IN[tid * step + 7] = x5 - x7;
 }
-__device__ void execute_2point_fft(float* IN)
+__device__ void execute_2point_fft_deprecated(float* IN)
 {
 	//__shared__ float S[4];
 	const unsigned int tid = threadIdx.x;
@@ -171,8 +184,9 @@ __device__ void execute_2point_fft(float* IN)
 	IN[tid * step + 2] = x0 - x2;
 	IN[tid * step + 3] = x1 - x3;
 }
+///
 
-__device__ void execute_8point_fft_shared(float* S)
+__device__ void execute_8point_fft(float* S)
 {
 	const uint tid = threadIdx.x;
 	const uint wordSize = 8;
@@ -185,25 +199,25 @@ __device__ void execute_8point_fft_shared(float* S)
 	// stage 1
 	{
 		// butterflies
-		x0 = S[0] + S[8]; // R
-		x1 = S[1] + S[9]; // I
-		x8 = S[0] - S[8]; // R
-		x9 = S[1] - S[9]; // I
+		x0  = S[tid * step +  0] + S[tid * step +  8]; // R
+		x1  = S[tid * step +  1] + S[tid * step +  9]; // I
+		x8  = S[tid * step +  0] - S[tid * step +  8]; // R
+		x9  = S[tid * step +  1] - S[tid * step +  9]; // I
+		
+		x2  = S[tid * step +  2] + S[tid * step + 10]; // R
+		x3  = S[tid * step +  3] + S[tid * step + 11]; // I
+		x10 = S[tid * step +  2] - S[tid * step + 10]; // R
+		x11 = S[tid * step +  3] - S[tid * step + 11]; // I
 
-		x2 = S[2] + S[10]; // R
-		x3 = S[3] + S[11]; // I
-		x10 = S[2] - S[10]; // R
-		x11 = S[3] - S[11]; // I
+		x4  = S[tid * step +  4] + S[tid * step + 12]; // R
+		x5  = S[tid * step +  5] + S[tid * step + 13]; // I
+		x12 = S[tid * step +  5] - S[tid * step + 13]; // R (swapped)
+		x13 = S[tid * step + 12] - S[tid * step +  4]; // I (swapped)
 
-		x4 = S[4] + S[12]; // R
-		x5 = S[5] + S[13]; // I
-		x12 = S[5] - S[13]; // R (swapped)
-		x13 = S[12] - S[4]; // I (swapped)
-
-		x6 = S[6] + S[14]; // R
-		x7 = S[7] + S[15]; // I
-		x14 = S[6] - S[14]; // R
-		x15 = S[7] - S[15]; // I
+		x6  = S[tid * step +  6] + S[tid * step + 14]; // R
+		x7  = S[tid * step +  7] + S[tid * step + 15]; // I
+		x14 = S[tid * step +  6] - S[tid * step + 14]; // R
+		x15 = S[tid * step +  7] - S[tid * step + 15]; // I
 
 		// rotations
 		x10 = x10 * coef;
@@ -282,27 +296,14 @@ __device__ void execute_8point_fft_shared(float* S)
 		S[tid * step + 15] = x13 - x15;
 	}
 }
-
-
-
-__device__ void mem_transfer(float* src, float* dst)
+__device__ void shuffle()
 {
-	const uint wordSize = 8;
-	const uint step = wordSize * 2;
-	const uint tid = threadIdx.x;
 
-	uint val = 0b0100'0001;
-	uint res = reverse_bits(val);
-	printf("Val: %d\n", val);
-	printf("Res: %d\n", res);
-
-	// TODO: make this read data in coalescence (irrelevant with only one active thread)
-	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
-	for (uint i = 0; i < 16; i++) {
-		dst[tid * step + i] = src[tid * step + i];
-	}
 }
+__device__ void rotate()
+{
 
+}
 __global__ void fft(float* IN, float* OUT)
 {
 	__shared__ float S[64];
@@ -310,23 +311,27 @@ __global__ void fft(float* IN, float* OUT)
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
 
-	// TODO: shuffle A
+	// input shuffle
+	shuffle();
 	
-	// executing single 8-point FFT
-	execute_8point_fft_shared(S);
+	// executing first 8-point FFT
+	execute_8point_fft(S);
 
-	// ROTATION
-	// TODO: shuffle B
+	// rotation + shuffle or shuffle + rotation
+	rotate();
+	shuffle();
 
-	// execute_8point_fft_shared(S);
+	// executing second 8-point FFT
+	execute_8point_fft(S);
 
-	// TODO: shuffle C
+	// output shuffle
+	shuffle();
 
 	// transfer from shared to global memory
 	mem_transfer(S, OUT);
 }
 
-#define INPUT_SIZE 8
+#define INPUT_SIZE 64
 #define WORD_SIZE 8
 int main()
 {
