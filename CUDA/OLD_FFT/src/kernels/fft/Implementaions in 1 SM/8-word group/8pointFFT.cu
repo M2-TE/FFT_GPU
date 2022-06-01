@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <math.h>
 
+#define INPUT_SIZE 64
+#define WORD_SIZE 8
+#define WORD_COMPLEX WORD_SIZE * 2
+
 typedef unsigned int uint;
 
 template <uint nBits>
@@ -27,6 +31,16 @@ __device__ void mem_transfer(float* src, float* dst)
 	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
 	for (uint i = 0; i < 16; i++) {
 		dst[tid * step + i] = src[tid * step + i];
+	}
+}
+__device__ void debug_values(float* S)
+{
+	const uint wordSize = 8;
+	const uint step = wordSize * 2;
+	const uint tid = threadIdx.x;
+
+	for (uint i = 0; i < 8; i++) {
+		printf("[Thread %d Value %d]\tReal: %f\t\tImag: %f\n", tid, i, S[tid * step + i * 2], S[tid * step + i * 2 + 1]);
 	}
 }
 
@@ -296,43 +310,71 @@ __device__ void execute_8point_fft(float* S)
 		S[tid * step + 15] = x13 - x15;
 	}
 }
-__device__ void shuffle()
+__device__ void shuffle(float* S)
 {
+	const uint wordSize = 8;
+	const uint step = wordSize * 2;
+	const uint tid = threadIdx.x;
 
+	// stuff needed to read the values to swap with
+	const uint tidLocal = tid % WORD_SIZE; // tid within 64-point fft
+	const uint offset = tidLocal > 3 ? tid - 4 : tid + 4;
+
+	uint start = tid * step;
+	uint other = offset * step;
+	for (uint i = 0; i < WORD_COMPLEX; i++) {
+
+		// read other value into register first
+		float val = S[other + i];
+		// then write to own thread-local value, effectively swapping
+		S[start + i] = val;
+	}
 }
-__device__ void rotate()
+__device__ void rotate(float* S, uint index)
 {
+	float pi = 3.14;
+	float scaling = 2 * pi / 64;
 
+	float a = (float)index / 8.0f;
+	float b = (float)(index % 8);
+	float phi = floorf(a * b);
+	float ang = scaling * phi;
+	float c = cosf(ang);
+	float s = sinf(ang);
+
+	// TODO
 }
 __global__ void fft(float* IN, float* OUT)
 {
-	__shared__ float S[64];
+	__shared__ float S[INPUT_SIZE * 2];
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
 
+
 	// input shuffle
-	shuffle();
-	
+	debug_values(S);
+	shuffle(S);
+	debug_values(S);
+
+	return;
 	// executing first 8-point FFT
 	execute_8point_fft(S);
 
 	// rotation + shuffle or shuffle + rotation
-	rotate();
-	shuffle();
+	rotate(S, 0); // index = 0, TODO
+	shuffle(S);
 
 	// executing second 8-point FFT
 	execute_8point_fft(S);
 
 	// output shuffle
-	shuffle();
+	shuffle(S);
 
 	// transfer from shared to global memory
 	mem_transfer(S, OUT);
 }
 
-#define INPUT_SIZE 64
-#define WORD_SIZE 8
 int main()
 {
 	//uint val = 0b0100'0001;
@@ -373,7 +415,7 @@ int main()
 
 	printf("The  outputs are: \n");
 	for (int l = 0; l < N; l++) {
-		printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
+		//printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
 	}
 
 }
