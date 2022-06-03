@@ -15,10 +15,10 @@
 
 int main()
 {
-	static constexpr uint N = 2; // N-point fft
+	static constexpr uint N = 64; // N-point fft
 	//ExecuteFFT<N>(1u, true);
 	//system("pause");
-	//ExecuteFFTNew<N>(false);
+	//ExecuteFFTNew<N>(true);
 	DoCUFFT(N, 1u, true);
 
 	//printf("Res: %d\n", 0b0010 >> 1);

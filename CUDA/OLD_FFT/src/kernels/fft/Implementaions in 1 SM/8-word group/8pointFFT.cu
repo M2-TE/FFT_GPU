@@ -200,6 +200,7 @@ __device__ void execute_2point_fft_deprecated(float* IN)
 }
 ///
 
+// is the indexing even correct here?
 __device__ void execute_8point_fft(float* S)
 {
 	const uint tid = threadIdx.x;
@@ -316,33 +317,57 @@ __device__ void shuffle(float* S)
 	const uint step = wordSize * 2;
 	const uint tid = threadIdx.x;
 
-	// stuff needed to read the values to swap with
-	const uint tidLocal = tid % WORD_SIZE; // tid within 64-point fft
-	const uint offset = tidLocal > 3 ? tid - 4 : tid + 4;
+	// need to store values in temp array before writing
+	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
+	float temps[wordSize * 2];
+	for (uint j = 0; j < 8; j++) {
+		uint i = j * 2;
 
-	uint start = tid * step;
-	uint other = offset * step;
-	for (uint i = 0; i < WORD_COMPLEX; i++) {
+		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
+		uint index = tid * step + i;
+		uint upper = index & 0b111'000'0;
+		uint lower = index & 0b000'111'0;
+		index = (upper >> 3) | (lower << 3);
 
-		// read other value into register first
-		float val = S[other + i];
-		// then write to own thread-local value, effectively swapping
-		S[start + i] = val;
+		// write both real and imag parts to temp
+		temps[i]     = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+
+	// then write values using temp array
+	for (uint j = 0; j < 8; j++) {
+		uint i = j * 2;
+		S[tid * step + i]     = temps[i];
+		S[tid * step + i + 1] = temps[i + 1];
 	}
 }
-__device__ void rotate(float* S, uint index)
+__device__ void rotate(float* S)
 {
-	float pi = 3.14;
-	float scaling = 2 * pi / 64;
+	const uint wordSize = 8;
+	const uint step = wordSize * 2;
+	const uint tid = threadIdx.x;
 
-	float a = (float)index / 8.0f;
-	float b = (float)(index % 8);
-	float phi = floorf(a * b);
-	float ang = scaling * phi;
-	float c = cosf(ang);
-	float s = sinf(ang);
+	const float pi = 3.14;
+	const float scaling = 2 * pi / 64;
 
-	// TODO
+	for (uint i = 0; i < wordSize; i++) {
+
+		// index between 0 and 64
+		uint index = (tid % wordSize) * wordSize + i;
+
+		float a = (float)index / 8.0f;
+		//float b = (float)(index % 8); // i will always be between 0 and 7, so no need for mod?
+		float b = (float)i;
+		float phi = floorf(a * b);
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		float real = S[tid * step + i * 2];
+		float imag = S[tid * step + i * 2 + 1];
+		S[tid * step + i * 2] = c * real + s * imag;
+		S[tid * step + i * 2 + 1] = c * imag - s * real;
+	}
 }
 __global__ void fft(float* IN, float* OUT)
 {
@@ -351,18 +376,17 @@ __global__ void fft(float* IN, float* OUT)
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
 
-
 	// input shuffle
-	debug_values(S);
+	//debug_values(S);
 	shuffle(S);
-	debug_values(S);
+	//debug_values(S);
+	//return;
 
-	return;
 	// executing first 8-point FFT
 	execute_8point_fft(S);
 
-	// rotation + shuffle or shuffle + rotation
-	rotate(S, 0); // index = 0, TODO
+	// rotation + shuffle
+	rotate(S);
 	shuffle(S);
 
 	// executing second 8-point FFT
@@ -377,10 +401,6 @@ __global__ void fft(float* IN, float* OUT)
 
 int main()
 {
-	//uint val = 0b0100'0001;
-	//printf("%d\n", reverse_bits<7>(val));
-	//return;
-
 	static constexpr size_t N = INPUT_SIZE;
 
 	float A[2 * N];
@@ -415,7 +435,7 @@ int main()
 
 	printf("The  outputs are: \n");
 	for (int l = 0; l < N; l++) {
-		//printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
+		printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
 	}
 
 }
