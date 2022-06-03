@@ -2,25 +2,13 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <math.h>
+#include <math_constants.h>
 
 #define INPUT_SIZE 64
 #define WORD_SIZE 8
-#define WORD_COMPLEX WORD_SIZE * 2
-
+#define TEMPLATE template <uint wordSize = WORD_SIZE, uint fftSize = 64>
 typedef unsigned int uint;
 
-template <uint nBits>
-__device__ uint reverse_bits(uint val)
-{
-	// NOTE: standard bit reversal either doesnt work on gpu
-	// or is just really unperformant, so i used the CUDA intrinsic __brev() instead
-	// however, it always operates on the full 32 bits of a value, so it needs to be manually adjusted
-	// to work with only x bits (x = 7 bits in the 64-fft case)
-	
-	// shift bits to the major part
-	// to only reverse a selected range of bits
-	return __brev(val << (sizeof(uint) * 8 - nBits));
-}
 __device__ void mem_transfer(float* src, float* dst)
 {
 	const uint wordSize = 8;
@@ -310,9 +298,8 @@ __device__ void execute_8point_fft(float* S)
 		S[tid * step + 15] = x13 - x15;
 	}
 }
-__device__ void shuffle(float* S)
+TEMPLATE __device__ void shuffle(float* S)
 {
-	const uint wordSize = 8;
 	const uint step = wordSize * 2;
 	const uint tid = threadIdx.x;
 
@@ -339,32 +326,34 @@ __device__ void shuffle(float* S)
 		S[index + 1] = temps[i + 1];
 	}
 }
-__device__ void rotate(float* S)
+TEMPLATE __device__ void rotate(float* S)
 {
-	const uint wordSize = 8;
 	const uint step = wordSize * 2;
 	const uint tid = threadIdx.x;
 
-	const float pi = 3.14;
-	const float scaling = 2 * pi / 64;
+	const float scaling = 2 * CUDART_PI_F / fftSize;
 
 	for (uint i = 0; i < wordSize; i++) {
 
-		// index between 0 and 64
-		uint index = (tid % wordSize) * wordSize + i;
+		// index between 0 and 128
+		uint index = tid * step + i * 2;
 
-		float a = floorf((float)index / 8.0f);
-		//float b = (float)(index % 8); // i will always be between 0 and 7, so no need for mod?
-		float b = (float)i;
+		// TODO: adjust this for different word sizes
+		// note: need index to complex value (0 -> 64)
+		// so divide index by two	(index / 2)  or (index >> 1)
+		// followed by				(index / 8)  or (index >> 3) as required by the rotation
+		// combined into			(index / 16) or (index >> 4)
+		float a = (float)(index >> 4);	// floor(index / 8) but since index is not complex: floor((index / 2) / 8)
+		float b = (float)i;				// mod(i, 8) i is already guarenteed to be between 0 and 8
 		float phi = a * b;
 		float ang = scaling * phi;
 		float c = cosf(ang);
 		float s = sinf(ang);
 
-		float real = S[tid * step + i * 2];
-		float imag = S[tid * step + i * 2 + 1];
-		S[tid * step + i * 2] = c * real + s * imag;
-		S[tid * step + i * 2 + 1] = c * imag - s * real;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index]	 = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
 	}
 }
 __global__ void fft(float* IN, float* OUT)
