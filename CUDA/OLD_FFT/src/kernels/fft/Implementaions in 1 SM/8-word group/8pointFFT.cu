@@ -321,7 +321,7 @@ __device__ void shuffle(float* S)
 	// need to store values in temp array before writing
 	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
 	float temps[wordSize * 2];
-	for (uint j = 0; j < 8; j++) {
+	for (uint j = 0; j < wordSize; j++) {
 		uint i = j * 2;
 
 		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
@@ -336,7 +336,7 @@ __device__ void shuffle(float* S)
 	}
 
 	// then write values using temp array
-	for (uint j = 0; j < 8; j++) {
+	for (uint j = 0; j < wordSize; j++) {
 		uint i = j * 2;
 		S[tid * step + i]     = temps[i];
 		S[tid * step + i + 1] = temps[i + 1];
@@ -356,10 +356,10 @@ __device__ void rotate(float* S)
 		// index between 0 and 64
 		uint index = (tid % wordSize) * wordSize + i;
 
-		float a = (float)index / 8.0f;
+		float a = floorf((float)index / 8.0f);
 		//float b = (float)(index % 8); // i will always be between 0 and 7, so no need for mod?
 		float b = (float)i;
-		float phi = floorf(a * b);
+		float phi = a * b;
 		float ang = scaling * phi;
 		float c = cosf(ang);
 		float s = sinf(ang);
