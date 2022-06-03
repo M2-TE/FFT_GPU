@@ -240,6 +240,18 @@
         },
         {
             "path": "106.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "112.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "113.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "114.nsight-cuprof-report"
         }
     ],
     "launcher": {

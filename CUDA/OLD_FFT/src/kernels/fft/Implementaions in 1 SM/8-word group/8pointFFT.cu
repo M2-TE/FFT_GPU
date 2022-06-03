@@ -200,7 +200,6 @@ __device__ void execute_2point_fft_deprecated(float* IN)
 }
 ///
 
-// is the indexing even correct here?
 __device__ void execute_8point_fft(float* S)
 {
 	const uint tid = threadIdx.x;
@@ -311,7 +310,6 @@ __device__ void execute_8point_fft(float* S)
 		S[tid * step + 15] = x13 - x15;
 	}
 }
-// TODO: the indexing here is not optimal yet!
 __device__ void shuffle(float* S)
 {
 	const uint wordSize = 8;
@@ -321,8 +319,7 @@ __device__ void shuffle(float* S)
 	// need to store values in temp array before writing
 	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
 	float temps[wordSize * 2];
-	for (uint j = 0; j < wordSize; j++) {
-		uint i = j * 2;
+	for (uint i = 0; i < wordSize * 2; i += 2) {
 
 		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
 		uint index = tid * step + i;
@@ -336,10 +333,10 @@ __device__ void shuffle(float* S)
 	}
 
 	// then write values using temp array
-	for (uint j = 0; j < wordSize; j++) {
-		uint i = j * 2;
-		S[tid * step + i]     = temps[i];
-		S[tid * step + i + 1] = temps[i + 1];
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+		uint index = tid * step + i;
+		S[index]     = temps[i];
+		S[index + 1] = temps[i + 1];
 	}
 }
 __device__ void rotate(float* S)
@@ -423,7 +420,7 @@ int main()
 	#define KERNEL_GRID(grid, block)
 #endif
 	dim3 gridDim(1, 1, 1);
-	dim3 blockDim(INPUT_SIZE / WORD_SIZE, 1, 1);
+	dim3 blockDim(INPUT_SIZE / WORD_SIZE, 1, 1); // TODO: use y as index to block of 64-point ffts?
 	fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
 	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
 
