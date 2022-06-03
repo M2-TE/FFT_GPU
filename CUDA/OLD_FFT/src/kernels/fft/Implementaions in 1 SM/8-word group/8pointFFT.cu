@@ -311,6 +311,7 @@ __device__ void execute_8point_fft(float* S)
 		S[tid * step + 15] = x13 - x15;
 	}
 }
+// TODO: the indexing here is not optimal yet!
 __device__ void shuffle(float* S)
 {
 	const uint wordSize = 8;
@@ -401,25 +402,19 @@ __global__ void fft(float* IN, float* OUT)
 
 int main()
 {
-	static constexpr size_t N = INPUT_SIZE;
+	float* pIN;
+	float IN[2 * INPUT_SIZE];
+	float OUT[2 * INPUT_SIZE];
 
-	float A[2 * N];
-	float* Ad;
-
-	int memsize = 2 * N * sizeof(float);
-
-
-	for (int i = 0; i < N; i++)
+	for (int i = 0; i < INPUT_SIZE; i++)
 	{
-		A[2 * i] = i;
-		A[2 * i + 1] = i;
+		IN[2 * i] = i;
+		IN[2 * i + 1] = i;
 	}
 
-
-	cudaMalloc((void**)&Ad, memsize);
-
-	cudaMemcpy(Ad, A, memsize, cudaMemcpyHostToDevice);
-
+	int memsize = 2 * INPUT_SIZE * sizeof(float);
+	cudaMalloc((void**)&pIN, memsize);
+	cudaMemcpy(pIN, IN, memsize, cudaMemcpyHostToDevice);
 
 	// Gets rid of false flags with IntelliSense
 #ifdef __CUDACC__
@@ -429,13 +424,13 @@ int main()
 #endif
 	dim3 gridDim(1, 1, 1);
 	dim3 blockDim(INPUT_SIZE / WORD_SIZE, 1, 1);
-	fft KERNEL_GRID(gridDim, blockDim)(Ad, Ad);
-	cudaMemcpy(A, Ad, memsize, cudaMemcpyDeviceToHost);
+	fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
+	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
 
 
 	printf("The  outputs are: \n");
-	for (int l = 0; l < N; l++) {
-		printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, A[2 * l], 2 * l + 1, A[2 * l + 1]);
+	for (int l = 0; l < INPUT_SIZE; l++) {
+		printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, OUT[2 * l], 2 * l + 1, OUT[2 * l + 1]);
 	}
 
 }
