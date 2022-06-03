@@ -4,21 +4,25 @@
 #include <math.h>
 #include <math_constants.h>
 
-#define INPUT_SIZE 64
+typedef unsigned int uint;
+#define INPUT_SIZE 128
 #define WORD_SIZE 8
 #define TEMPLATE template <uint wordSize = WORD_SIZE, uint fftSize = 64>
-typedef unsigned int uint;
+#define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
+#define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
 
 __device__ void mem_transfer(float* src, float* dst)
 {
 	const uint wordSize = 8;
-	const uint step = wordSize * 2;
-	const uint tid = threadIdx.x;
+	const uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
 
 	// TODO: make this read data in coalescence (irrelevant with only one active thread)
 	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
+	uint index = idy * yStep + idx * xStep;
 	for (uint i = 0; i < 16; i++) {
-		dst[tid * step + i] = src[tid * step + i];
+		dst[index + i] = src[index + i];
 	}
 }
 __device__ void debug_values(float* S)
@@ -188,11 +192,12 @@ __device__ void execute_2point_fft_deprecated(float* IN)
 }
 ///
 
-__device__ void execute_8point_fft(float* S)
+TEMPLATE __device__ void execute_8point_fft(float* S)
 {
-	const uint tid = threadIdx.x;
-	const uint wordSize = 8;
-	const uint step = wordSize * 2;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	uint index = idx * xStep + idy * yStep;
 	const float coef = sqrtf(2.0f) / 2.0f;
 
 	// registers for the main data inbetween stages
@@ -201,25 +206,25 @@ __device__ void execute_8point_fft(float* S)
 	// stage 1
 	{
 		// butterflies
-		x0  = S[tid * step +  0] + S[tid * step +  8]; // R
-		x1  = S[tid * step +  1] + S[tid * step +  9]; // I
-		x8  = S[tid * step +  0] - S[tid * step +  8]; // R
-		x9  = S[tid * step +  1] - S[tid * step +  9]; // I
-		
-		x2  = S[tid * step +  2] + S[tid * step + 10]; // R
-		x3  = S[tid * step +  3] + S[tid * step + 11]; // I
-		x10 = S[tid * step +  2] - S[tid * step + 10]; // R
-		x11 = S[tid * step +  3] - S[tid * step + 11]; // I
+		x0  = S[index +  0] + S[index +  8]; // R
+		x1  = S[index +  1] + S[index +  9]; // I
+		x8  = S[index +  0] - S[index +  8]; // R
+		x9  = S[index +  1] - S[index +  9]; // I
 
-		x4  = S[tid * step +  4] + S[tid * step + 12]; // R
-		x5  = S[tid * step +  5] + S[tid * step + 13]; // I
-		x12 = S[tid * step +  5] - S[tid * step + 13]; // R (swapped)
-		x13 = S[tid * step + 12] - S[tid * step +  4]; // I (swapped)
+		x2  = S[index +  2] + S[index + 10]; // R
+		x3  = S[index +  3] + S[index + 11]; // I
+		x10 = S[index +  2] - S[index + 10]; // R
+		x11 = S[index +  3] - S[index + 11]; // I
 
-		x6  = S[tid * step +  6] + S[tid * step + 14]; // R
-		x7  = S[tid * step +  7] + S[tid * step + 15]; // I
-		x14 = S[tid * step +  6] - S[tid * step + 14]; // R
-		x15 = S[tid * step +  7] - S[tid * step + 15]; // I
+		x4  = S[index +  4] + S[index + 12]; // R
+		x5  = S[index +  5] + S[index + 13]; // I
+		x12 = S[index +  5] - S[index + 13]; // R (swapped)
+		x13 = S[index + 12] - S[index +  4]; // I (swapped)
+
+		x6  = S[index +  6] + S[index + 14]; // R
+		x7  = S[index +  7] + S[index + 15]; // I
+		x14 = S[index +  6] - S[index + 14]; // R
+		x15 = S[index +  7] - S[index + 15]; // I
 
 		// rotations
 		x10 = x10 * coef;
@@ -277,31 +282,31 @@ __device__ void execute_8point_fft(float* S)
 	// stage 3
 	{
 		// butterflies (with bit reversal)
-		S[tid * step + 0] = x0 + x2;
-		S[tid * step + 1] = x1 + x3;
-		S[tid * step + 2] = x8 + x10;
-		S[tid * step + 3] = x9 + x11;
+		S[index +  0] =  x0 +  x2;
+		S[index +  1] =  x1 +  x3;
+		S[index +  2] =  x8 + x10;
+		S[index +  3] =  x9 + x11;
 
-		S[tid * step + 4] = x4 + x6;
-		S[tid * step + 5] = x5 + x7;
-		S[tid * step + 6] = x12 + x14;
-		S[tid * step + 7] = x13 + x15;
+		S[index +  4] =  x4 +  x6;
+		S[index +  5] =  x5 +  x7;
+		S[index +  6] = x12 + x14;
+		S[index +  7] = x13 + x15;
 
-		S[tid * step + 8] = x0 - x2;
-		S[tid * step + 9] = x1 - x3;
-		S[tid * step + 10] = x8 - x10;
-		S[tid * step + 11] = x9 - x11;
+		S[index +  8] =  x0 -  x2;
+		S[index +  9] =  x1 -  x3;
+		S[index + 10] =  x8 - x10;
+		S[index + 11] =  x9 - x11;
 
-		S[tid * step + 12] = x4 - x6;
-		S[tid * step + 13] = x5 - x7;
-		S[tid * step + 14] = x12 - x14;
-		S[tid * step + 15] = x13 - x15;
+		S[index + 12] =  x4 -  x6;
+		S[index + 13] =  x5 -  x7;
+		S[index + 14] = x12 - x14;
+		S[index + 15] = x13 - x15;
 	}
 }
 TEMPLATE __device__ void shuffle(float* S)
 {
-	const uint step = wordSize * 2;
-	const uint tid = threadIdx.x;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
 
 	// need to store values in temp array before writing
 	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
@@ -309,10 +314,11 @@ TEMPLATE __device__ void shuffle(float* S)
 	for (uint i = 0; i < wordSize * 2; i += 2) {
 
 		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
-		uint index = tid * step + i;
+		uint index = idx * xStep + i;
 		uint upper = index & 0b111'000'0;
 		uint lower = index & 0b000'111'0;
 		index = (upper >> 3) | (lower << 3);
+		index += idy * yStep;
 
 		// write both real and imag parts to temp
 		temps[i]     = S[index];
@@ -321,41 +327,34 @@ TEMPLATE __device__ void shuffle(float* S)
 
 	// then write values using temp array
 	for (uint i = 0; i < wordSize * 2; i += 2) {
-		uint index = tid * step + i;
+		uint index = idx * xStep + idy * yStep + i;
 		S[index]     = temps[i];
 		S[index + 1] = temps[i + 1];
 	}
 }
 TEMPLATE __device__ void rotate(float* S)
 {
-	const uint step = wordSize * 2;
-	const uint tid = threadIdx.x;
-
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
 	const float scaling = 2 * CUDART_PI_F / fftSize;
 
 	for (uint i = 0; i < wordSize; i++) {
 
-		// index between 0 and 128
-		uint index = tid * step + i * 2;
-
-		// TODO: adjust this for different word sizes
-		// note: need index to complex value (0 -> 64)
-		// so divide index by two	(index / 2)  or (index >> 1)
-		// followed by				(index / 8)  or (index >> 3) as required by the rotation
-		// combined into			(index / 16) or (index >> 4)
-		float a = (float)(index >> 4);	// floor(index / 8) but since index is not complex: floor((index / 2) / 8)
-		float b = (float)i;				// mod(i, 8) i is already guarenteed to be between 0 and 8
+		float a = (float)idx;	// floor(index / 8) tid is basically that, no need for more calculations
+		float b = (float)i;		// mod(i, 8) i is already guarenteed to be between 0 and 8
 		float phi = a * b;
 		float ang = scaling * phi;
 		float c = cosf(ang);
 		float s = sinf(ang);
 
+		uint index = idx * xStep + idy * yStep + i * 2;
 		float real = S[index];
 		float imag = S[index + 1];
 		S[index]	 = c * real + s * imag;
 		S[index + 1] = c * imag - s * real;
 	}
 }
+
 __global__ void fft(float* IN, float* OUT)
 {
 	__shared__ float S[INPUT_SIZE * 2];
@@ -364,10 +363,7 @@ __global__ void fft(float* IN, float* OUT)
 	mem_transfer(IN, S);
 
 	// input shuffle
-	//debug_values(S);
 	shuffle(S);
-	//debug_values(S);
-	//return;
 
 	// executing first 8-point FFT
 	execute_8point_fft(S);
@@ -398,6 +394,14 @@ int main()
 		IN[2 * i + 1] = i;
 	}
 
+	// DEBUGGING for advanced indexing
+	int j = 0;
+	for (int i = 64; i < INPUT_SIZE; i++, j++)
+	{
+		IN[2 * i] = j;
+		IN[2 * i + 1] = j;
+	}
+
 	int memsize = 2 * INPUT_SIZE * sizeof(float);
 	cudaMalloc((void**)&pIN, memsize);
 	cudaMemcpy(pIN, IN, memsize, cudaMemcpyHostToDevice);
@@ -409,7 +413,8 @@ int main()
 	#define KERNEL_GRID(grid, block)
 #endif
 	dim3 gridDim(1, 1, 1);
-	dim3 blockDim(INPUT_SIZE / WORD_SIZE, 1, 1); // TODO: use y as index to block of 64-point ffts?
+	dim3 blockDim(8, INPUT_SIZE / 64, 1);
+
 	fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
 	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
 

@@ -188,11 +188,9 @@
             "path": "92.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "8point_NoShared.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "8point_Shared.nsight-cuprof-report"
         },
         {
@@ -226,7 +224,6 @@
             "path": "102.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "8point_Shared_INOUT.nsight-cuprof-report"
         },
         {
@@ -242,7 +239,6 @@
             "path": "106.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "112.nsight-cuprof-report"
         },
         {
@@ -250,8 +246,29 @@
             "path": "113.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "114.nsight-cuprof-report"
+        },
+        {
+            "path": "115.nsight-cuprof-report"
+        },
+        {
+            "path": "116.nsight-cuprof-report"
+        },
+        {
+            "path": "117.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "118.nsight-cuprof-report"
+        },
+        {
+            "path": "119.nsight-cuprof-report"
+        },
+        {
+            "path": "120.nsight-cuprof-report"
+        },
+        {
+            "path": "121.nsight-cuprof-report"
         }
     ],
     "launcher": {
