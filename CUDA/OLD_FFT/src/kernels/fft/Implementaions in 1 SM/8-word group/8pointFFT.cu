@@ -11,31 +11,6 @@ typedef unsigned int uint;
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
 
-__device__ void mem_transfer(float* src, float* dst)
-{
-	const uint wordSize = 8;
-	const uint fftSize = 64;
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-
-	// TODO: make this read data in coalescence (irrelevant with only one active thread)
-	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
-	uint index = idy * yStep + idx * xStep;
-	for (uint i = 0; i < 16; i++) {
-		dst[index + i] = src[index + i];
-	}
-}
-__device__ void debug_values(float* S)
-{
-	const uint wordSize = 8;
-	const uint step = wordSize * 2;
-	const uint tid = threadIdx.x;
-
-	for (uint i = 0; i < 8; i++) {
-		printf("[Thread %d Value %d]\tReal: %f\t\tImag: %f\n", tid, i, S[tid * step + i * 2], S[tid * step + i * 2 + 1]);
-	}
-}
-
 /// deprecated atm
 __device__ void execute_8point_fft_deprecated(float* IN)
 {
@@ -192,6 +167,79 @@ __device__ void execute_2point_fft_deprecated(float* IN)
 }
 ///
 
+__device__ void debug_values(float* S)
+{
+	const uint wordSize = 8;
+	const uint step = wordSize * 2;
+	const uint tid = threadIdx.x;
+
+	for (uint i = 0; i < 8; i++) {
+		printf("[Thread %d Value %d]\tReal: %f\t\tImag: %f\n", tid, i, S[tid * step + i * 2], S[tid * step + i * 2 + 1]);
+	}
+}
+TEMPLATE __device__ void mem_transfer(float* src, float* dst)
+{
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// TODO: make this read data in coalescence (irrelevant with only one active thread)
+	// note: "perfect" coalescence would require [threads = wordSize * 2 * threadsPerBlock]
+	uint index = idy * yStep + idx * xStep;
+	for (uint i = 0; i < 16; i++) {
+		dst[index + i] = src[index + i];
+	}
+}
+TEMPLATE __device__ void shuffle(float* S)
+{
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// need to store values in temp array before writing
+	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
+	float temps[wordSize * 2];
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+
+		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
+		uint index = idx * xStep + i;
+		uint upper = index & 0b111'000'0;
+		uint lower = index & 0b000'111'0;
+		index = (upper >> 3) | (lower << 3);
+		index += idy * yStep;
+
+		// write both real and imag parts to temp
+		temps[i]     = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+
+	// then write values using temp array
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+		uint index = idx * xStep + idy * yStep + i;
+		S[index]     = temps[i];
+		S[index + 1] = temps[i + 1];
+	}
+}
+TEMPLATE __device__ void rotate(float* S)
+{
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2 * CUDART_PI_F / fftSize;
+
+	for (uint i = 0; i < wordSize; i++) {
+
+		float a = (float)idx;	// floor(index / 8) tid is basically that, no need for more calculations
+		float b = (float)i;		// mod(i, 8) i is already guarenteed to be between 0 and 8
+		float phi = a * b;
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = idx * xStep + idy * yStep + i * 2;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index]	 = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
 TEMPLATE __device__ void execute_8point_fft(float* S)
 {
 	INDEXING_ALIASES;
@@ -303,58 +351,8 @@ TEMPLATE __device__ void execute_8point_fft(float* S)
 		S[index + 15] = x13 - x15;
 	}
 }
-TEMPLATE __device__ void shuffle(float* S)
-{
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
 
-	// need to store values in temp array before writing
-	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
-	float temps[wordSize * 2];
-	for (uint i = 0; i < wordSize * 2; i += 2) {
-
-		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
-		uint index = idx * xStep + i;
-		uint upper = index & 0b111'000'0;
-		uint lower = index & 0b000'111'0;
-		index = (upper >> 3) | (lower << 3);
-		index += idy * yStep;
-
-		// write both real and imag parts to temp
-		temps[i]     = S[index];
-		temps[i + 1] = S[index + 1];
-	}
-
-	// then write values using temp array
-	for (uint i = 0; i < wordSize * 2; i += 2) {
-		uint index = idx * xStep + idy * yStep + i;
-		S[index]     = temps[i];
-		S[index + 1] = temps[i + 1];
-	}
-}
-TEMPLATE __device__ void rotate(float* S)
-{
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-	const float scaling = 2 * CUDART_PI_F / fftSize;
-
-	for (uint i = 0; i < wordSize; i++) {
-
-		float a = (float)idx;	// floor(index / 8) tid is basically that, no need for more calculations
-		float b = (float)i;		// mod(i, 8) i is already guarenteed to be between 0 and 8
-		float phi = a * b;
-		float ang = scaling * phi;
-		float c = cosf(ang);
-		float s = sinf(ang);
-
-		uint index = idx * xStep + idy * yStep + i * 2;
-		float real = S[index];
-		float imag = S[index + 1];
-		S[index]	 = c * real + s * imag;
-		S[index + 1] = c * imag - s * real;
-	}
-}
-
+// core kernel
 __global__ void fft(float* IN, float* OUT)
 {
 	__shared__ float S[INPUT_SIZE * 2];
