@@ -8,7 +8,7 @@ typedef unsigned int uint;
 #define INPUT_SIZE 64 // number of complex values
 #define WORD_SIZE 8
 #define TEMPLATE_A template <uint wordSize = WORD_SIZE, uint fftSize = 64>
-#define TEMPLATE_B template <uint wordSize = WORD_SIZE, uint fftSize = 64, bool bShuffleInput = false, bool bShuffleOutput = false>
+#define TEMPLATE_B template <bool bShuffleInput = false, bool bShuffleOutput = false, uint wordSize = WORD_SIZE, uint fftSize = 64>
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
 
@@ -169,9 +169,8 @@ __device__ void execute_2point_fft_deprecated(float* IN)
 ///
 
 // utils
-__device__ void debug_values(float* S)
+TEMPLATE_A __device__ void debug_values(float* S)
 {
-	const uint wordSize = 8;
 	const uint step = wordSize * 2;
 	const uint tid = threadIdx.x;
 
@@ -387,8 +386,6 @@ TEMPLATE_B __device__ void execute_8point_fft_shuffled(float* S)
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
-	const float coef = sqrtf(2.0f) / 2.0f;
-
 	// registers for the main data inbetween stages
 	float x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
 
@@ -442,6 +439,8 @@ TEMPLATE_B __device__ void execute_8point_fft_shuffled(float* S)
 		}
 
 		// rotations
+		const float coef = sqrtf(2.0f) / 2.0f;
+
 		x10 = x10 * coef;
 		x11 = x11 * coef;
 
@@ -498,7 +497,28 @@ TEMPLATE_B __device__ void execute_8point_fft_shuffled(float* S)
 	{
 		// butterflies (with bit reversal)
 		if constexpr (bShuffleOutput) {
+			uint offsetR = idx * 2 + idy * yStep;
+			uint offsetI = offsetR + 1;
+			
+			S[wordSize *  0 + offsetR] =  x0 +  x2;
+			S[wordSize *  0 + offsetI] =  x1 +  x3;
+			S[wordSize *  2 + offsetR] =  x8 + x10;
+			S[wordSize *  2 + offsetI] =  x9 + x11;
 
+			S[wordSize *  4 + offsetR] =  x4 +  x6;
+			S[wordSize *  4 + offsetI] =  x5 +  x7;
+			S[wordSize *  6 + offsetR] = x12 + x14;
+			S[wordSize *  6 + offsetI] = x13 + x15;
+
+			S[wordSize *  8 + offsetR] =  x0 -  x2;
+			S[wordSize *  8 + offsetI] =  x1 -  x3;
+			S[wordSize * 10 + offsetR] =  x8 - x10;
+			S[wordSize * 10 + offsetI] =  x9 - x11;
+
+			S[wordSize * 12 + offsetR] =  x4 -  x6;
+			S[wordSize * 12 + offsetI] =  x5 -  x7;
+			S[wordSize * 14 + offsetR] = x12 - x14;
+			S[wordSize * 14 + offsetI] = x13 - x15;
 		}
 		else {
 			uint index = idx * xStep + idy * yStep;
@@ -533,12 +553,30 @@ __global__ void fft(float* IN, float* OUT)
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
 
+	// input shuffle + first 8-point fft
+	execute_8point_fft_shuffled<true, false>(S);
+
+	// single rotation for each value
+	rotate(S);
+
+	// input shuffle + second 8-point fft + output shuffle
+	execute_8point_fft_shuffled<true, true>(S);
+
+	// transfer from shared to global memory
+	mem_transfer(S, OUT);
+}
+__global__ void fft_old(float* IN, float* OUT)
+{
+	__shared__ float S[INPUT_SIZE * 2];
+
+	// transfer from global to shared memory
+	mem_transfer(IN, S);
+
 
 	// input shuffle
-	// shuffleB(S);
+	shuffleB(S);
 	// executing first 8-point FFT
-	// execute_8point_fft(S);
-	execute_8point_fft_shuffled<8, 64, true, false>(S);
+	execute_8point_fft(S);
 
 	// rotation + shuffle
 	rotate(S);
