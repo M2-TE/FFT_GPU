@@ -5,144 +5,128 @@
 #include <math_constants.h>
 
 typedef unsigned int uint;
+#define THREADS_PER_CHUNK 8
+#define CHUNK_SIZE 64
 #define INPUT_SIZE 64 // number of complex values
 #define WORD_SIZE 8
-#define TEMPLATE_A template <uint wordSize = WORD_SIZE, uint fftSize = 64>
-#define TEMPLATE_B template <bool bShuffleInput = false, bool bShuffleOutput = false, uint wordSize = WORD_SIZE, uint fftSize = 64>
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
+#define TEMPLATE_A template <uint wordSize, uint fftSize>
+#define TEMPLATE_B template <bool bShuffleInput = false, bool bShuffleOutput = false>
 
 /// deprecated atm
-__device__ void execute_8point_fft_deprecated(float* IN)
+__device__ void execute_8point_fft(float* S)
 {
-	const unsigned int tid = threadIdx.x;
+	const uint wordSize = 8;
+	const uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	uint index = idx * xStep + idy * yStep;
 	const float coef = sqrtf(2.0f) / 2.0f;
-	const unsigned int wordSize = 8;
-	const unsigned int step = wordSize * 2;
+
+	// registers for the main data inbetween stages
+	float x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
 
 	// stage 1
-	// butterflies
-	float x0 = IN[tid * step + 0] + IN[tid * step + 8]; // R
-	float x1 = IN[tid * step + 1] + IN[tid * step + 9]; // I
-	float x8 = IN[tid * step + 0] - IN[tid * step + 8]; // R
-	float x9 = IN[tid * step + 1] - IN[tid * step + 9]; // I
+	{
+		// butterflies
+		x0 = S[index + 0] + S[index + 8]; // R
+		x1 = S[index + 1] + S[index + 9]; // I
+		x8 = S[index + 0] - S[index + 8]; // R
+		x9 = S[index + 1] - S[index + 9]; // I
 
-	float x2 = IN[tid * step + 2] + IN[tid * step + 10]; // R
-	float x3 = IN[tid * step + 3] + IN[tid * step + 11]; // I
-	float x10 = IN[tid * step + 2] - IN[tid * step + 10]; // R
-	float x11 = IN[tid * step + 3] - IN[tid * step + 11]; // I
+		x2 = S[index + 2] + S[index + 10]; // R
+		x3 = S[index + 3] + S[index + 11]; // I
+		x10 = S[index + 2] - S[index + 10]; // R
+		x11 = S[index + 3] - S[index + 11]; // I
 
-	float x4 = IN[tid * step + 4] + IN[tid * step + 12]; // R
-	float x5 = IN[tid * step + 5] + IN[tid * step + 13]; // I
-	float x12 = IN[tid * step + 5] - IN[tid * step + 13]; // R (swapped)
-	float x13 = IN[tid * step + 12] - IN[tid * step + 4]; // I (swapped)
+		x4 = S[index + 4] + S[index + 12]; // R
+		x5 = S[index + 5] + S[index + 13]; // I
+		x12 = S[index + 5] - S[index + 13]; // R (swapped)
+		x13 = S[index + 12] - S[index + 4]; // I (swapped)
 
-	float x6 = IN[tid * step + 6] + IN[tid * step + 14]; // R
-	float x7 = IN[tid * step + 7] + IN[tid * step + 15]; // I
-	float x14 = IN[tid * step + 6] - IN[tid * step + 14]; // R
-	float x15 = IN[tid * step + 7] - IN[tid * step + 15]; // I
+		x6 = S[index + 6] + S[index + 14]; // R
+		x7 = S[index + 7] + S[index + 15]; // I
+		x14 = S[index + 6] - S[index + 14]; // R
+		x15 = S[index + 7] - S[index + 15]; // I
 
-	// rotations
-	x10 = x10 * coef;
-	x11 = x11 * coef;
+		// rotations
+		x10 = x10 * coef;
+		x11 = x11 * coef;
 
-	float temp = x10 + x11;
-	x11 = x11 - x10;
-	x10 = temp;
+		float temp = x10 + x11;
+		x11 = x11 - x10;
+		x10 = temp;
 
 
-	x14 = x14 * coef;
-	x15 = x15 * coef;
+		x14 = x14 * coef;
+		x15 = x15 * coef;
 
-	temp = -x14 + x15;
-	x15 = -x15 - x14;
-	x14 = temp;
+		temp = -x14 + x15;
+		x15 = -x15 - x14;
+		x14 = temp;
+	}
 
 	// stage 2
-	// butterflies
-	float tempR;
-	float tempI;
-	tempR = x0 + x4; // R
-	tempI = x1 + x5; // I
-	x4 = x0 - x4; // R
-	x5 = x1 - x5; // I
-	x0 = tempR;
-	x1 = tempI;
+	{
+		// butterflies
+		float tempR;
+		float tempI;
+		tempR = x0 + x4; // R
+		tempI = x1 + x5; // I
+		x4 = x0 - x4; // R
+		x5 = x1 - x5; // I
+		x0 = tempR;
+		x1 = tempI;
 
-	tempR = x2 + x6; // R
-	tempI = x3 + x7; // I
-	float tempR2 = x3 - x7;
-	x7 = x6 - x2; // I (swapped)
-	x6 = tempR2; // R (swapped)
-	x2 = tempR;
-	x3 = tempI;
+		tempR = x2 + x6; // R
+		tempI = x3 + x7; // I
+		float tempR2 = x3 - x7;
+		x7 = x6 - x2; // I (swapped)
+		x6 = tempR2; // R (swapped)
+		x2 = tempR;
+		x3 = tempI;
 
-	tempR = x8 + x12; // R
-	tempI = x9 + x13; // I
-	x12 = x8 - x12; // R
-	x13 = x9 - x13; // I
-	x8 = tempR;
-	x9 = tempI;
+		tempR = x8 + x12; // R
+		tempI = x9 + x13; // I
+		x12 = x8 - x12; // R
+		x13 = x9 - x13; // I
+		x8 = tempR;
+		x9 = tempI;
 
-	tempR = x10 + x14; // R
-	tempI = x11 + x15; // I
-	tempR2 = x11 - x15;
-	x15 = x14 - x10; // I (swapped)
-	x14 = tempR2; // R (swapped)
-	x10 = tempR;
-	x11 = tempI;
+		tempR = x10 + x14; // R
+		tempI = x11 + x15; // I
+		tempR2 = x11 - x15;
+		x15 = x14 - x10; // I (swapped)
+		x14 = tempR2; // R (swapped)
+		x10 = tempR;
+		x11 = tempI;
+	}
 
 	// stage 3
-	// butterflies
-	IN[tid * step + 0] = x0 + x2;
-	IN[tid * step + 1] = x1 + x3;
-	IN[tid * step + 2] = x8 + x10;
-	IN[tid * step + 3] = x9 + x11;
+	{
+		// butterflies (with bit reversal)
+		S[index + 0] = x0 + x2;
+		S[index + 1] = x1 + x3;
+		S[index + 2] = x8 + x10;
+		S[index + 3] = x9 + x11;
 
-	IN[tid * step + 4] = x4 + x6;
-	IN[tid * step + 5] = x5 + x7;
-	IN[tid * step + 6] = x12 + x14;
-	IN[tid * step + 7] = x13 + x15;
+		S[index + 4] = x4 + x6;
+		S[index + 5] = x5 + x7;
+		S[index + 6] = x12 + x14;
+		S[index + 7] = x13 + x15;
 
-	IN[tid * step + 8] = x0 - x2;
-	IN[tid * step + 9] = x1 - x3;
-	IN[tid * step + 10] = x8 - x10;
-	IN[tid * step + 11] = x9 - x11;
+		S[index + 8] = x0 - x2;
+		S[index + 9] = x1 - x3;
+		S[index + 10] = x8 - x10;
+		S[index + 11] = x9 - x11;
 
-	IN[tid * step + 12] = x4 - x6;
-	IN[tid * step + 13] = x5 - x7;
-	IN[tid * step + 14] = x12 - x14;
-	IN[tid * step + 15] = x13 - x15;
-}
-__device__ void execute_4point_fft_deprecated(float* IN)
-{
-	const unsigned int tid = threadIdx.x;
-	const unsigned int wordSize = 4;
-	const unsigned int step = wordSize * 2;
-
-	// stage 1
-	// butterflies
-	float x0 = IN[tid * step + 0] + IN[tid * step + 4]; // R
-	float x1 = IN[tid * step + 1] + IN[tid * step + 5]; // I
-	float x4 = IN[tid * step + 0] - IN[tid * step + 4]; // R
-	float x5 = IN[tid * step + 1] - IN[tid * step + 5]; // I
-
-	float x2 = IN[tid * step + 2] + IN[tid * step + 6]; // R
-	float x3 = IN[tid * step + 3] + IN[tid * step + 7]; // I
-	float x6 = IN[tid * step + 3] - IN[tid * step + 7]; // R (swapped)
-	float x7 = IN[tid * step + 6] - IN[tid * step + 2]; // I (swapped)
-
-	// stage 2
-	// butterflies
-	IN[tid * step + 0] = x0 + x2;
-	IN[tid * step + 1] = x1 + x3;
-	IN[tid * step + 2] = x4 + x6;
-	IN[tid * step + 3] = x5 + x7;
-
-	IN[tid * step + 4] = x0 - x2;
-	IN[tid * step + 5] = x1 - x3;
-	IN[tid * step + 6] = x4 - x6;
-	IN[tid * step + 7] = x5 - x7;
+		S[index + 12] = x4 - x6;
+		S[index + 13] = x5 - x7;
+		S[index + 14] = x12 - x14;
+		S[index + 15] = x13 - x15;
+	}
 }
 __device__ void execute_2point_fft_deprecated(float* IN)
 {
@@ -184,7 +168,7 @@ TEMPLATE_A __device__ void mem_transfer(float* src, float* dst)
 	STEPPING_ALIASES;
 
 	// TODO: make this read/write data in coalescence
-	uint index = idy * yStep + idx * xStep;
+	uint index = idx * xStep + idy * yStep;
 	for (uint i = 0; i < wordSize * 2; i++) {
 		dst[index + i] = src[index + i];
 	}
@@ -257,7 +241,7 @@ TEMPLATE_A __device__ void rotate(float* S)
 	for (uint i = 0; i < wordSize; i++) {
 
 		float a = (float)idx;	// floor(index / 8) tid is basically that, no need for more calculations
-		float b = (float)i;		// mod(i, 8) i is already guarenteed to be between 0 and 8
+		float b = (float)i; 	// mod(i, 8) i is already guarenteed to be between 0 and 8
 		float phi = a * b;
 		float ang = scaling * phi;
 		float c = cosf(ang);
@@ -270,119 +254,10 @@ TEMPLATE_A __device__ void rotate(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
-TEMPLATE_A __device__ void execute_8point_fft(float* S)
-{
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-
-	uint index = idx * xStep + idy * yStep;
-	const float coef = sqrtf(2.0f) / 2.0f;
-
-	// registers for the main data inbetween stages
-	float x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
-
-	// stage 1
-	{
-		// butterflies
-		x0 =  S[index +  0] + S[index +  8]; // R
-		x1 =  S[index +  1] + S[index +  9]; // I
-		x8 =  S[index +  0] - S[index +  8]; // R
-		x9 =  S[index +  1] - S[index +  9]; // I
-				  			 
-		x2 =  S[index +  2] + S[index + 10]; // R
-		x3 =  S[index +  3] + S[index + 11]; // I
-		x10 = S[index +  2] - S[index + 10]; // R
-		x11 = S[index +  3] - S[index + 11]; // I
-							 
-		x4 =  S[index +  4] + S[index + 12]; // R
-		x5 =  S[index +  5] + S[index + 13]; // I
-		x12 = S[index +  5] - S[index + 13]; // R (swapped)
-		x13 = S[index + 12] - S[index +  4]; // I (swapped)
-
-		x6 =  S[index +  6] + S[index + 14]; // R
-		x7 =  S[index +  7] + S[index + 15]; // I
-		x14 = S[index +  6] - S[index + 14]; // R
-		x15 = S[index +  7] - S[index + 15]; // I
-
-		// rotations
-		x10 = x10 * coef;
-		x11 = x11 * coef;
-
-		float temp = x10 + x11;
-		x11 = x11 - x10;
-		x10 = temp;
-
-
-		x14 = x14 * coef;
-		x15 = x15 * coef;
-
-		temp = -x14 + x15;
-		x15 = -x15 - x14;
-		x14 = temp;
-	}
-
-	// stage 2
-	{
-		// butterflies
-		float tempR;
-		float tempI;
-		tempR = x0 + x4; // R
-		tempI = x1 + x5; // I
-		x4 = x0 - x4; // R
-		x5 = x1 - x5; // I
-		x0 = tempR;
-		x1 = tempI;
-
-		tempR = x2 + x6; // R
-		tempI = x3 + x7; // I
-		float tempR2 = x3 - x7;
-		x7 = x6 - x2; // I (swapped)
-		x6 = tempR2; // R (swapped)
-		x2 = tempR;
-		x3 = tempI;
-
-		tempR = x8 + x12; // R
-		tempI = x9 + x13; // I
-		x12 = x8 - x12; // R
-		x13 = x9 - x13; // I
-		x8 = tempR;
-		x9 = tempI;
-
-		tempR = x10 + x14; // R
-		tempI = x11 + x15; // I
-		tempR2 = x11 - x15;
-		x15 = x14 - x10; // I (swapped)
-		x14 = tempR2; // R (swapped)
-		x10 = tempR;
-		x11 = tempI;
-	}
-
-	// stage 3
-	{
-		// butterflies (with bit reversal)
-		S[index +  0] =  x0 +  x2;
-		S[index +  1] =  x1 +  x3;
-		S[index +  2] =  x8 + x10;
-		S[index +  3] =  x9 + x11;
-
-		S[index +  4] =  x4 +  x6;
-		S[index +  5] =  x5 +  x7;
-		S[index +  6] = x12 + x14;
-		S[index +  7] = x13 + x15;
-
-		S[index +  8] =  x0 -  x2;
-		S[index +  9] =  x1 -  x3;
-		S[index + 10] =  x8 - x10;
-		S[index + 11] =  x9 - x11;
-
-		S[index + 12] =  x4 -  x6;
-		S[index + 13] =  x5 -  x7;
-		S[index + 14] = x12 - x14;
-		S[index + 15] = x13 - x15;
-	}
-}
 TEMPLATE_B __device__ void execute_8point_fft_shuffled(float* S)
 {
+	const uint wordSize = 8;
+	const uint fftSize = 64;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -544,6 +419,73 @@ TEMPLATE_B __device__ void execute_8point_fft_shuffled(float* S)
 		}
 	}
 }
+TEMPLATE_B __device__ void execute_4point_fft_shuffled(float* S)
+{
+	const uint wordSize = 4;
+	const uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// registers for the main data inbetween stages
+	float x0, x1, x2, x3, x4, x5, x6, x7;
+
+	// stage 1
+	// butterflies + rotations
+	if constexpr (bShuffleInput) {
+		uint offsetR = idx * 2 + idy * yStep;
+		uint offsetI = offsetR + 1;
+		x0 = S[wordSize * 0 + offsetR] + S[wordSize * 4 + offsetR]; // R
+		x1 = S[wordSize * 0 + offsetI] + S[wordSize * 4 + offsetI]; // I
+		x4 = S[wordSize * 0 + offsetR] - S[wordSize * 4 + offsetR]; // R
+		x5 = S[wordSize * 0 + offsetI] - S[wordSize * 4 + offsetI]; // I
+
+		x2 = S[wordSize * 2 + offsetR] + S[wordSize * 6 + offsetR]; // R
+		x3 = S[wordSize * 2 + offsetI] + S[wordSize * 6 + offsetI]; // I
+		x6 = S[wordSize * 2 + offsetI] - S[wordSize * 6 + offsetI]; // R (swapped)
+		x7 = S[wordSize * 6 + offsetR] - S[wordSize * 2 + offsetR]; // I (swapped)
+	}
+	else {
+		uint index = idx * xStep + idy * yStep;
+		x0 = S[index + 0] + S[index + 4]; // R
+		x1 = S[index + 1] + S[index + 5]; // I
+		x4 = S[index + 0] - S[index + 4]; // R
+		x5 = S[index + 1] - S[index + 5]; // I
+
+		x2 = S[index + 2] + S[index + 6]; // R
+		x3 = S[index + 3] + S[index + 7]; // I
+		x6 = S[index + 3] - S[index + 7]; // R (swapped)
+		x7 = S[index + 6] - S[index + 2]; // I (swapped)
+	}
+
+	// stage 2
+	// butterflies + bit reversal
+	if constexpr (bShuffleOutput)
+	{
+		uint offsetR = idx * 2 + idy * yStep;
+		uint offsetI = offsetR + 1;
+		S[wordSize * 0 + offsetR] = x0 + x2;
+		S[wordSize * 0 + offsetI] = x1 + x3;
+		S[wordSize * 2 + offsetR] = x4 + x6;
+		S[wordSize * 2 + offsetI] = x5 + x7;
+
+		S[wordSize * 4 + offsetR] = x0 - x2;
+		S[wordSize * 4 + offsetI] = x1 - x3;
+		S[wordSize * 6 + offsetR] = x4 - x6;
+		S[wordSize * 6 + offsetI] = x5 - x7;
+	}
+	else {
+		uint index = idx * xStep + idy * yStep;
+		S[index + 0] = x0 + x2;
+		S[index + 1] = x1 + x3;
+		S[index + 2] = x4 + x6;
+		S[index + 3] = x5 + x7;
+
+		S[index + 4] = x0 - x2;
+		S[index + 5] = x1 - x3;
+		S[index + 6] = x4 - x6;
+		S[index + 7] = x5 - x7;
+	}
+}
 
 // core kernel
 __global__ void fft(float* IN, float* OUT)
@@ -551,45 +493,63 @@ __global__ void fft(float* IN, float* OUT)
 	__shared__ float S[INPUT_SIZE * 2];
 
 	// transfer from global to shared memory
-	mem_transfer(IN, S);
+	mem_transfer<8, 64>(IN, S);
 
 	// input shuffle + first 8-point fft
 	execute_8point_fft_shuffled<true, false>(S);
 
 	// single rotation for each value
-	rotate(S);
+	rotate<8, 64>(S);
 
 	// input shuffle + second 8-point fft + output shuffle
 	execute_8point_fft_shuffled<true, true>(S);
 
 	// transfer from shared to global memory
-	mem_transfer(S, OUT);
+	mem_transfer<8, 64>(S, OUT);
+}
+__global__ void fft_32(float* IN, float* OUT)
+{
+	__shared__ float S[INPUT_SIZE * 2];
+
+	// transfer from global to shared memory
+	mem_transfer<4, 32>(IN, S);
+
+	// input shuffle + first 4-point fft
+	execute_8point_fft_shuffled<true, false>(S);
+
+	// single rotation for each value
+	rotate<4, 32>(S);
+
+	// input shuffle + second 4-point fft + output shuffle
+	execute_4point_fft_shuffled<true, true>(S);
+
+	// transfer from shared to global memory
+	mem_transfer<4, 32>(S, OUT);
 }
 __global__ void fft_old(float* IN, float* OUT)
 {
 	__shared__ float S[INPUT_SIZE * 2];
 
 	// transfer from global to shared memory
-	mem_transfer(IN, S);
-
+	mem_transfer<8, 64>(IN, S);
 
 	// input shuffle
-	shuffleB(S);
+	shuffleB<8, 64>(S);
 	// executing first 8-point FFT
 	execute_8point_fft(S);
 
 	// rotation + shuffle
-	rotate(S);
-	shuffleB(S);
+	rotate<8, 64>(S);
+	shuffleB<8, 64>(S);
 
 	// executing second 8-point FFT
 	execute_8point_fft(S);
 
 	// output shuffle
-	shuffleB(S);
+	shuffleB<8, 64>(S);
 
 	// transfer from shared to global memory
-	mem_transfer(S, OUT);
+	mem_transfer<8, 64>(S, OUT);
 }
 
 int main()
@@ -616,9 +576,10 @@ int main()
 	#define KERNEL_GRID(grid, block)
 #endif
 	dim3 gridDim(1, 1, 1);
-	dim3 blockDim(8, INPUT_SIZE / 64, 1);
-
+	dim3 blockDim(THREADS_PER_CHUNK, INPUT_SIZE / CHUNK_SIZE, 1);
 	fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
+	//fft_32 KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
+
 	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
 
 

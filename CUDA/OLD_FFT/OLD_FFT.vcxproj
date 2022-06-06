@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\kernels\fft\Implementaions in 1 SM\8-word group\8pointFFT.cu" />
+    <CudaCompile Include="src\kernels\8pointFFT.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
