@@ -5,9 +5,9 @@
 #include <math_constants.h>
 
 typedef unsigned int uint;
-#define THREADS_PER_CHUNK 4 // should be 8
-#define CHUNK_SIZE 32 // should be 64
-#define INPUT_SIZE 32 // number of complex values
+#define THREADS_PER_CHUNK 2 // should be 8
+#define CHUNK_SIZE 16 // should be 64
+#define INPUT_SIZE 16 // number of complex values
 
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
@@ -431,7 +431,7 @@ TEMPLATE_B __device__ void execute_8point_fft_shuffled(float* S)
 		}
 	}
 }
-TEMPLATE_B __device__ void execute_4point_fft_shuffled(float* IN, float* OUT)
+TEMPLATE_B __device__ void execute_4point_fft_shuffled(float* S)
 {
 	const uint wordSize = 4;
 	const uint fftSize = 64;
@@ -447,59 +447,187 @@ TEMPLATE_B __device__ void execute_4point_fft_shuffled(float* IN, float* OUT)
 		
 		const uint offsetR = idx * 2 + idy * yStep;
 		const uint offsetI = offsetR + 1;
-		//printf("%d: %d\n", idx, offsetR);
-		x0 = IN[inputShuffleSize * 0 + offsetR] + IN[inputShuffleSize * 4 + offsetR]; // R
-		x1 = IN[inputShuffleSize * 0 + offsetI] + IN[inputShuffleSize * 4 + offsetI]; // I
-		x4 = IN[inputShuffleSize * 0 + offsetR] - IN[inputShuffleSize * 4 + offsetR]; // R
-		x5 = IN[inputShuffleSize * 0 + offsetI] - IN[inputShuffleSize * 4 + offsetI]; // I
+		x0 = S[inputShuffleSize * 0 + offsetR] + S[inputShuffleSize * 4 + offsetR]; // R
+		x1 = S[inputShuffleSize * 0 + offsetI] + S[inputShuffleSize * 4 + offsetI]; // I
+		x4 = S[inputShuffleSize * 0 + offsetR] - S[inputShuffleSize * 4 + offsetR]; // R
+		x5 = S[inputShuffleSize * 0 + offsetI] - S[inputShuffleSize * 4 + offsetI]; // I
 
-		x2 = IN[inputShuffleSize * 2 + offsetR] + IN[inputShuffleSize * 6 + offsetR]; // R
-		x3 = IN[inputShuffleSize * 2 + offsetI] + IN[inputShuffleSize * 6 + offsetI]; // I
-		x6 = IN[inputShuffleSize * 2 + offsetI] - IN[inputShuffleSize * 6 + offsetI]; // R (swapped)
-		x7 = IN[inputShuffleSize * 6 + offsetR] - IN[inputShuffleSize * 2 + offsetR]; // I (swapped)
+		x2 = S[inputShuffleSize * 2 + offsetR] + S[inputShuffleSize * 6 + offsetR]; // R
+		x3 = S[inputShuffleSize * 2 + offsetI] + S[inputShuffleSize * 6 + offsetI]; // I
+		x6 = S[inputShuffleSize * 2 + offsetI] - S[inputShuffleSize * 6 + offsetI]; // R (swapped)
+		x7 = S[inputShuffleSize * 6 + offsetR] - S[inputShuffleSize * 2 + offsetR]; // I (swapped)
 	}
 	else {
 		const uint index = idx * xStep + idy * yStep;
-		x0 = IN[index + 0] + IN[index + 4]; // R
-		x1 = IN[index + 1] + IN[index + 5]; // I
-		x4 = IN[index + 0] - IN[index + 4]; // R
-		x5 = IN[index + 1] - IN[index + 5]; // I
+		x0 = S[index + 0] + S[index + 4]; // R
+		x1 = S[index + 1] + S[index + 5]; // I
+		x4 = S[index + 0] - S[index + 4]; // R
+		x5 = S[index + 1] - S[index + 5]; // I
 
-		x2 = IN[index + 2] + IN[index + 6]; // R
-		x3 = IN[index + 3] + IN[index + 7]; // I
-		x6 = IN[index + 3] - IN[index + 7]; // R (swapped)
-		x7 = IN[index + 6] - IN[index + 2]; // I (swapped)
+		x2 = S[index + 2] + S[index + 6]; // R
+		x3 = S[index + 3] + S[index + 7]; // I
+		x6 = S[index + 3] - S[index + 7]; // R (swapped)
+		x7 = S[index + 6] - S[index + 2]; // I (swapped)
 	}
 
 	// stage 2
 	// butterflies + bit reversal
-	if constexpr (outputShuffleSize)
-	{
-		//x0 = x1 = x2 = x3 = x4 = x5 = x6 = x7 = 1.0f;
+	if constexpr (outputShuffleSize) {
+
 		const uint offsetR = idx * 2 + idy * yStep;
 		const uint offsetI = offsetR + 1;
-		//printf("%d: %d\n", idx, offsetR);
-		OUT[outputShuffleSize *  0 + offsetR] = x0 + x2;
-		OUT[outputShuffleSize *  0 + offsetI] = x1 + x3;
-		OUT[outputShuffleSize *  4 + offsetR] = x4 + x6;
-		OUT[outputShuffleSize *  4 + offsetI] = x5 + x7;
+		S[outputShuffleSize *  0 + offsetR] = x0 + x2;
+		S[outputShuffleSize *  0 + offsetI] = x1 + x3;
+		S[outputShuffleSize *  4 + offsetR] = x4 + x6;
+		S[outputShuffleSize *  4 + offsetI] = x5 + x7;
 
-		OUT[outputShuffleSize *  8 + offsetR] = x0 - x2;
-		OUT[outputShuffleSize *  8 + offsetI] = x1 - x3;
-		OUT[outputShuffleSize * 12 + offsetR] = x4 - x6;
-		OUT[outputShuffleSize * 12 + offsetI] = x5 - x7;
+		S[outputShuffleSize *  8 + offsetR] = x0 - x2;
+		S[outputShuffleSize *  8 + offsetI] = x1 - x3;
+		S[outputShuffleSize * 12 + offsetR] = x4 - x6;
+		S[outputShuffleSize * 12 + offsetI] = x5 - x7;
 	}
 	else {
 		const uint index = idx * xStep + idy * yStep;
-		OUT[index + 0] = x0 + x2;
-		OUT[index + 1] = x1 + x3;
-		OUT[index + 2] = x4 + x6;
-		OUT[index + 3] = x5 + x7;
+		S[index + 0] = x0 + x2;
+		S[index + 1] = x1 + x3;
+		S[index + 2] = x4 + x6;
+		S[index + 3] = x5 + x7;
 
-		OUT[index + 4] = x0 - x2;
-		OUT[index + 5] = x1 - x3;
-		OUT[index + 6] = x4 - x6;
-		OUT[index + 7] = x5 - x7;
+		S[index + 4] = x0 - x2;
+		S[index + 5] = x1 - x3;
+		S[index + 6] = x4 - x6;
+		S[index + 7] = x5 - x7;
+	}
+}
+TEMPLATE_B __device__ void execute_2point_fft_shuffled(float* S)
+{
+	const uint wordSize = 2;
+	const uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// registers for the main data inbetween stages
+	float x0, x1, x2, x3;
+
+	// stage 1
+	// butterflies
+	if constexpr (inputShuffleSize) {
+		const uint offsetR = idx * 2 + idy * yStep;
+		const uint offsetI = offsetR + 1;
+
+		x0 = S[inputShuffleSize * 0 + offsetR] + S[inputShuffleSize * 2 + offsetR]; // R
+		x1 = S[inputShuffleSize * 0 + offsetI] + S[inputShuffleSize * 2 + offsetI]; // I
+
+		x2 = S[inputShuffleSize * 0 + offsetR] - S[inputShuffleSize * 2 + offsetR]; // R
+		x3 = S[inputShuffleSize * 0 + offsetI] - S[inputShuffleSize * 2 + offsetI]; // I
+	}
+	else {
+		const uint index = idx * xStep + idy * yStep;
+		x0 = S[index + 0] + S[index + 2]; // R
+		x1 = S[index + 1] + S[index + 3]; // I
+
+		x2 = S[index + 0] - S[index + 2]; // R
+		x3 = S[index + 1] - S[index + 3]; // I
+	}
+
+	// output only
+	if constexpr (outputShuffleSize) {
+		const uint offsetR = idx * 2 + idy * yStep;
+		const uint offsetI = offsetR + 1;
+
+		S[outputShuffleSize * 0 + offsetR] = x0;
+		S[outputShuffleSize * 0 + offsetI] = x1;
+
+		S[outputShuffleSize * 2 + offsetR] = x2;
+		S[outputShuffleSize * 2 + offsetI] = x3;
+	}
+	else {
+		S[idx * xStep + 0] = x0;
+		S[idx * xStep + 1] = x1;
+		S[idx * xStep + 2] = x2;
+		S[idx * xStep + 3] = x3;
+	}
+
+	// OLD
+	if (false) {
+		float x0 = S[idx * xStep + 0];
+		float x1 = S[idx * xStep + 1];
+		float x2 = S[idx * xStep + 2];
+		float x3 = S[idx * xStep + 3];
+
+		// stage 1
+		// butterflies
+		S[idx * xStep + 0] = x0 + x2;
+		S[idx * xStep + 1] = x1 + x3;
+		S[idx * xStep + 2] = x0 - x2;
+		S[idx * xStep + 3] = x1 - x3;
+	}
+}
+
+__device__ void shuffle_A(float* S)
+{
+	const uint wordSize = 8;
+	const uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// need to store values in temp array before writing
+	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
+	float temps[wordSize * 2];
+	uint offsetSrc = idx * xStep; // could abstain from storing this in register, its only usage will be in offsetSrc + i, which is a single multiply+add operation
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+
+		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
+		uint index = offsetSrc + i;
+		uint upper = index & 0b1'000'0;
+		uint lower = index & 0b0'111'0;
+		index = (upper >> 3) | (lower << 1);
+		index += idy * yStep;
+
+		// write both real and imag parts to temp
+		temps[i] = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+
+	// then write values using temp array
+	uint offsetDst = idx * xStep + idy * yStep;
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+		uint index = offsetDst + i;
+		S[index] = temps[i];
+		S[index + 1] = temps[i + 1];
+	}
+}
+__device__ void shuffle_B(float* S)
+{
+	const uint wordSize = 8;
+	const uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// need to store values in temp array before writing
+	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
+	float temps[wordSize * 2];
+	uint offsetSrc = idx * xStep; // could abstain from storing this in register, its only usage will be in offsetSrc + i, which is a single multiply+add operation
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+
+		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
+		uint index = offsetSrc + i;
+		uint upper = index & 0b111'0'0;
+		uint lower = index & 0b000'1'0;
+		index = (upper >> 1) | (lower << 3);
+		index += idy * yStep;
+
+		// write both real and imag parts to temp
+		temps[i] = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+
+	// then write values using temp array
+	uint offsetDst = idx * xStep + idy * yStep;
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+		uint index = offsetDst + i;
+		S[index] = temps[i];
+		S[index + 1] = temps[i + 1];
 	}
 }
 
@@ -530,18 +658,43 @@ __global__ void fft_32(float* IN, float* OUT)
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
 
-	// input shuffle + first 4-point fft
+	// input shuffle + first 8-point fft
 	execute_8point_fft_shuffled<4, false>(S);
 	
 	// single rotation for each value
 	rotate<32>(S);
 
-	// input shuffle + second 4-point fft + output shuffle
+	// input shuffle + second fft (2x 4-point) + output shuffle
 	// NOTE: shuffle size of 4 is normal shuffle, 8 is inverse
-	execute_4point_fft_shuffled<8, 4>(S + 0, S + 0);
-	execute_4point_fft_shuffled<8, 4>(S + 8, S + 8);
+	execute_4point_fft_shuffled<8, 4>(S + 0);
+	execute_4point_fft_shuffled<8, 4>(S + 8);
 
 	// transfer from shared to global memory
+	mem_transfer(S, OUT);
+}
+__global__ void fft_16(float* IN, float* OUT)
+{
+	__shared__ float S[INPUT_SIZE * 2];
+
+	// transfer from global to shared memory
+	mem_transfer(IN, S);
+
+	// input shuffle + first 8-point fft
+	shuffle_A(S);
+	execute_8point_fft_shuffled<false, false>(S);
+
+	// single rotation for each value
+	rotate<16>(S);
+
+	// input shuffle + second fft (2x 4-point) + output shuffle
+	shuffle_B(S);
+	execute_2point_fft_shuffled<false, false>(S + 0);
+	execute_2point_fft_shuffled<false, false>(S + 8);
+	execute_2point_fft_shuffled<false, false>(S + 16);
+	execute_2point_fft_shuffled<false, false>(S + 24);
+
+	// transfer from shared to global memory
+	shuffle_A(S);
 	mem_transfer(S, OUT);
 }
 __global__ void fft_old(float* IN, float* OUT)
@@ -596,7 +749,8 @@ int main()
 	dim3 gridDim(1, 1, 1);
 	dim3 blockDim(THREADS_PER_CHUNK, INPUT_SIZE / CHUNK_SIZE, 1);
 	//fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
-	fft_32 KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
+	//fft_32 KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
+	fft_16 KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
 
 	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
 	printf("The  outputs are: \n");

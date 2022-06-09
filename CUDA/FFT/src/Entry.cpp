@@ -12,10 +12,9 @@
 #include "kernels/kernel_launcher_new.cuh"
 #include "cufft/cufft_impl.cuh"
 
-
 int main()
 {
-	static constexpr uint N = 32; // N-point fft
+	static constexpr uint N = 16; // N-point fft
 	//ExecuteFFT<N>(1u, true);
 	//system("pause");
 	//ExecuteFFTNew<N>(true);
