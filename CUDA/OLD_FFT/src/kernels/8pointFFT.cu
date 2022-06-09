@@ -680,21 +680,18 @@ __global__ void fft_16(float* IN, float* OUT)
 	mem_transfer(IN, S);
 
 	// input shuffle + first 8-point fft
-	shuffle_A(S);
-	execute_8point_fft_shuffled<false, false>(S);
+	execute_8point_fft_shuffled<2, false>(S);
 
 	// single rotation for each value
 	rotate<16>(S);
 
 	// input shuffle + second fft (2x 4-point) + output shuffle
-	shuffle_B(S);
-	execute_2point_fft_shuffled<false, false>(S + 0);
-	execute_2point_fft_shuffled<false, false>(S + 8);
-	execute_2point_fft_shuffled<false, false>(S + 16);
-	execute_2point_fft_shuffled<false, false>(S + 24);
+	execute_2point_fft_shuffled<8, 2>(S + 0);
+	execute_2point_fft_shuffled<8, 2>(S + 8);
+	execute_2point_fft_shuffled<8, 2>(S + 16);
+	execute_2point_fft_shuffled<8, 2>(S + 24);
 
 	// transfer from shared to global memory
-	shuffle_A(S);
 	mem_transfer(S, OUT);
 }
 __global__ void fft_old(float* IN, float* OUT)
