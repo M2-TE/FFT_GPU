@@ -12,9 +12,9 @@
 #endif
 
 typedef unsigned int uint;
-#define INPUT_SIZE 64 // number of complex values
-#define INPUTS_PER_CHUNK 64 // should be 64
-#define THREADS_PER_CHUNK 8 // should be 8
+#define INPUT_SIZE 4096 // number of complex values
+#define INPUTS_PER_CHUNK 64
+#define THREADS_PER_CHUNK 8
 
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
@@ -51,22 +51,21 @@ __device__ void mem_transfer(float* src, float* dst)
 __device__ void shuffle_forward(float* S)
 {
 	const uint wordSize = 8;
-	const uint fftSize = 16;
+	const uint fftSize = 64;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
 	// need to store values in temp array before writing
 	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
 	float temps[wordSize * 2];
-	uint offsetSrc = idx * xStep; // could abstain from storing this in register, its only usage will be in offsetSrc + i, which is a single multiply+add operation
+	uint offset = idx * xStep + idy * yStep;
 	for (uint i = 0; i < wordSize * 2; i += 2) {
 
-		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
-		uint index = offsetSrc + i;
-		uint upper = index & 0b1'000'0;
-		uint lower = index & 0b0'111'0;
-		index = (upper >> 3) | (lower << 1);
-		index += idy * yStep;
+		// shuffle index bits
+		uint index = offset + i;
+		uint upper = index & 0b0'111111'000000'0;
+		uint lower = index & 0b0'000000'111111'0;
+		index = (upper >> 6) | (lower << 6);
 
 		// write both real and imag parts to temp
 		temps[i]     = S[index];
@@ -74,17 +73,17 @@ __device__ void shuffle_forward(float* S)
 	}
 
 	// then write values using temp array
-	uint offsetDst = idx * xStep + idy * yStep;
 	for (uint i = 0; i < wordSize * 2; i += 2) {
-		uint index = offsetDst + i;
+		uint index = offset + i;
 		S[index]     = temps[i];
 		S[index + 1] = temps[i + 1];
 	}
 }
+// defect
 __device__ void shuffle_inverse(float* S)
 {
 	const uint wordSize = 8;
-	const uint fftSize = 16;
+	const uint fftSize = 64;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -96,9 +95,9 @@ __device__ void shuffle_inverse(float* S)
 
 		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
 		uint index = offsetSrc + i;
-		uint upper = index & 0b111'0'0;
-		uint lower = index & 0b000'1'0;
-		index = (upper >> 1) | (lower << 3);
+		uint upper = index & 0b000000'111111'0;
+		uint lower = index & 0b111111'000000'0;
+		index = (upper >> 6) | (lower << 6);
 		index += idy * yStep;
 
 		// write both real and imag parts to temp
@@ -121,7 +120,7 @@ TEMPLATE_A __device__ void rotate(float* S)
 	const uint wordSize = 8;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
-	const float scaling = 2 * CUDART_PI_F / fftSize;
+	const float scaling = 2.0f * CUDART_PI_F / (float)(fftSize);
 
 	for (uint i = 0; i < wordSize; i++) {
 
@@ -456,6 +455,22 @@ __device__ void fft_64_point(float* S)
 	// input shuffle + second 8-point fft + output shuffle
 	fft_8_point<8, 8>(S);
 }
+__device__ void fft_4096_point(float* S)
+{
+	shuffle_forward(S);
+	__syncthreads();
+	//fft_64_point(S);
+	//__syncthreads();
+
+	//rotate<4096>(S);
+	//__syncthreads();
+
+	//shuffle_forward(S);
+	//__syncthreads();
+	//fft_64_point(S);
+	//__syncthreads();
+	//shuffle_forward(S);
+}
 
 // core kernel
 __global__ void fft(float* IN, float* OUT)
@@ -464,8 +479,10 @@ __global__ void fft(float* IN, float* OUT)
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
+	__syncthreads();
 
-	fft_64_point(S);
+	fft_4096_point(S);
+	__syncthreads();
 
 	// transfer from shared to global memory
 	mem_transfer(S, OUT);
@@ -480,8 +497,8 @@ int main()
 	for (int i = 0; i < INPUT_SIZE; i++)
 	{
 		// DEBUGGING for advanced indexing
-		IN[2 * i] = i % 64;
-		IN[2 * i + 1] = i % 64;
+		IN[2 * i + 0] = i;
+		IN[2 * i + 1] = i;
 	}
 
 	int memsize = 2 * INPUT_SIZE * sizeof(float);
@@ -490,6 +507,7 @@ int main()
 
 	dim3 gridDim(1, 1, 1);
 	dim3 blockDim(THREADS_PER_CHUNK, INPUT_SIZE / INPUTS_PER_CHUNK, 1);
+	printf("Launching kernel with %d threads per chunk, %d chunks\n", blockDim.x, blockDim.y);
 	fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
 
 	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
