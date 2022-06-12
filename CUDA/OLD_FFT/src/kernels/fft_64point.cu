@@ -18,7 +18,7 @@ typedef unsigned int uint;
 
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
-#define TEMPLATE_A template <uint fftSize>
+#define TEMPLATE_A template <uint scal>
 #define FFT_SHUFFLING template <uint inputShuffleSize = 0, uint outputShuffleSize = 0>
 
 // utils
@@ -79,48 +79,15 @@ __device__ void shuffle_forward(float* S)
 		S[index + 1] = temps[i + 1];
 	}
 }
-// defect
-__device__ void shuffle_inverse(float* S)
-{
-	const uint wordSize = 8;
-	const uint fftSize = 64;
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-
-	// need to store values in temp array before writing
-	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
-	float temps[wordSize * 2];
-	uint offsetSrc = idx * xStep; // could abstain from storing this in register, its only usage will be in offsetSrc + i, which is a single multiply+add operation
-	for (uint i = 0; i < wordSize * 2; i += 2) {
-
-		// shuffle index bits (b6, b5, b4) <-> (b3, b2, b1) + (b0)
-		uint index = offsetSrc + i;
-		uint upper = index & 0b000000'111111'0;
-		uint lower = index & 0b111111'000000'0;
-		index = (upper >> 6) | (lower << 6);
-		index += idy * yStep;
-
-		// write both real and imag parts to temp
-		temps[i] = S[index];
-		temps[i + 1] = S[index + 1];
-	}
-
-	// then write values using temp array
-	uint offsetDst = idx * xStep + idy * yStep;
-	for (uint i = 0; i < wordSize * 2; i += 2) {
-		uint index = offsetDst + i;
-		S[index] = temps[i];
-		S[index + 1] = temps[i + 1];
-	}
-}
 
 // rotations/ffts
 TEMPLATE_A __device__ void rotate(float* S)
 {
+	const uint fftSize = 64;
 	const uint wordSize = 8;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
-	const float scaling = 2.0f * CUDART_PI_F / (float)(fftSize);
+	const float scaling = 2.0f * CUDART_PI_F / (float)(scal);
 
 	for (uint i = 0; i < wordSize; i++) {
 
@@ -459,17 +426,17 @@ __device__ void fft_4096_point(float* S)
 {
 	shuffle_forward(S);
 	__syncthreads();
-	//fft_64_point(S);
-	//__syncthreads();
+	fft_64_point(S); // TODO: bit reversed output?
+	__syncthreads();
 
-	//rotate<4096>(S);
-	//__syncthreads();
+	rotate<4096>(S);
+	__syncthreads();
 
-	//shuffle_forward(S);
-	//__syncthreads();
-	//fft_64_point(S);
-	//__syncthreads();
-	//shuffle_forward(S);
+	shuffle_forward(S);
+	__syncthreads();
+	fft_64_point(S);
+	__syncthreads();
+	shuffle_forward(S);
 }
 
 // core kernel

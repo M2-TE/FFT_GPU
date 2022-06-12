@@ -14,7 +14,7 @@
 
 int main()
 {
-	static constexpr uint N = 16; // N-point fft
+	static constexpr uint N = 4096; // N-point fft
 	//ExecuteFFT<N>(1u, true);
 	//system("pause");
 	//ExecuteFFTNew<N>(true);
