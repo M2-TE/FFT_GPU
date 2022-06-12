@@ -15,6 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\kernels\8pointFFT.cu" />
+    <CudaCompile Include="src\kernels\fft_64point.cu" />
   </ItemGroup>
 </Project>

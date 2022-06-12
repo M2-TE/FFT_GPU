@@ -272,6 +272,10 @@
         },
         {
             "path": "122.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "123.nsight-cuprof-report"
         }
     ],
     "launcher": {
