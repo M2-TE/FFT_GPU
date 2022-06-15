@@ -11,14 +11,19 @@
 	#define KERNEL_GRID(grid, block)
 #endif
 
+//#define SINGLE_DEBUG
+
+
 typedef unsigned int uint;
 #define INPUT_SIZE 4096 // number of complex values
 #define INPUTS_PER_CHUNK 64
 #define THREADS_PER_CHUNK 8
 
+// TODO: constexpr
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
 #define TEMPLATE_A template <uint scal>
+#define TEMPLATE_B template <uint nBits>
 #define FFT_SHUFFLING template <uint inputShuffleSize = 0, uint outputShuffleSize = 0>
 
 // utils
@@ -47,7 +52,66 @@ __device__ void mem_transfer(float* src, float* dst)
 		dst[index + i] = src[index + i];
 	}
 }
-// shuffling variants (deprecated)
+
+// bit reversal
+TEMPLATE_B __device__ uint reverse_bits(uint val)
+{
+	// NOTE: standard bit reversal techniques either dont work on gpu
+	// or are just really unperformant, so i used the CUDA intrinsic __brev() instead
+	// however, it always operates on the full 32 bits of a value, so it needs to be manually adjusted
+	// to work with only x bits (x = 7 bits in the 64-fft case)
+
+	// shift bits to the major part
+	// to only reverse a selected range of bits
+	//return __brev(val << (sizeof(uint) * 8 - nBits));
+	return __brev(val << (32 - nBits));
+}
+TEMPLATE_B __device__ void reverse_index_bits(float* S)
+{
+	constexpr uint wordSize = 8;
+	constexpr uint fftSize = 64;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// mask everything outside the relevant (e.g. 0-127) bits
+	uint invertedMask = (0xff'ff'ff'ff >> (32 - (nBits + 1))) ^ 0xff'ff'ff'ff;
+
+	// need to store values in temp array before writing
+	float temps[wordSize * 2];
+	uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+
+		// TODO: work in 0-63 space instead of 0-127?
+
+		// obtain relevant bits via mask
+		//printf("Before: %d\n", (offset + i));
+		uint index = offset + i;
+		uint indexB = index & invertedMask;
+		//printf("Invert: %d\n", indexB);
+		index = reverse_bits<nBits>(index >> 1); // shift right by one to ignore R/I bit
+		index = (index << 1) + indexB; // shift back to the left and add leftover
+
+		//printf("After: %d\n", index);
+
+
+
+		// write both real and imag parts to temp
+		temps[i] = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+
+	__syncthreads();
+
+	// then write values using temp array
+	for (uint i = 0; i < wordSize * 2; i += 2) {
+		uint index = offset + i;
+		S[index] = temps[i];
+		S[index + 1] = temps[i + 1];
+	}
+
+}
+
+// shuffling
 __device__ void shuffle_forward(float* S)
 {
 	const uint wordSize = 8;
@@ -71,6 +135,7 @@ __device__ void shuffle_forward(float* S)
 		temps[i]     = S[index];
 		temps[i + 1] = S[index + 1];
 	}
+	__syncthreads();
 
 	// then write values using temp array
 	for (uint i = 0; i < wordSize * 2; i += 2) {
@@ -425,18 +490,27 @@ __device__ void fft_64_point(float* S)
 __device__ void fft_4096_point(float* S)
 {
 	shuffle_forward(S);
-	__syncthreads();
-	fft_64_point(S); // TODO: bit reversed output?
-	__syncthreads();
 
-	rotate<4096>(S);
-	__syncthreads();
+	if constexpr (true) {
+		__syncthreads();
+		fft_64_point(S);
+	}
 
-	shuffle_forward(S);
+	if constexpr (true) {
+		__syncthreads();
+		rotate<4096>(S);
+	}
+
 	__syncthreads();
-	fft_64_point(S);
-	__syncthreads();
 	shuffle_forward(S);
+
+	if constexpr (false) {
+		__syncthreads();
+		fft_64_point(S);
+	}
+
+	__syncthreads();
+	//shuffle_forward(S);
 }
 
 // core kernel
@@ -446,8 +520,8 @@ __global__ void fft(float* IN, float* OUT)
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
-	__syncthreads();
 
+	__syncthreads();
 	fft_4096_point(S);
 	__syncthreads();
 
@@ -464,8 +538,8 @@ int main()
 	for (int i = 0; i < INPUT_SIZE; i++)
 	{
 		// DEBUGGING for advanced indexing
-		IN[2 * i + 0] = i;
-		IN[2 * i + 1] = i;
+		//IN[2 * i + 0] = i % 64; IN[2 * i + 1] = i % 64;
+		IN[2 * i + 0] = i; IN[2 * i + 1] = i;
 	}
 
 	int memsize = 2 * INPUT_SIZE * sizeof(float);
@@ -473,13 +547,21 @@ int main()
 	cudaMemcpy(pIN, IN, memsize, cudaMemcpyHostToDevice);
 
 	dim3 gridDim(1, 1, 1);
+
+#ifdef SINGLE_DEBUG
+	dim3 blockDim(1, 1, 1);
+#else
 	dim3 blockDim(THREADS_PER_CHUNK, INPUT_SIZE / INPUTS_PER_CHUNK, 1);
+#endif
 	printf("Launching kernel with %d threads per chunk, %d chunks\n", blockDim.x, blockDim.y);
 	fft KERNEL_GRID(gridDim, blockDim)(pIN, pIN);
 
 	cudaMemcpy(OUT, pIN, memsize, cudaMemcpyDeviceToHost);
 	printf("The  outputs are: \n");
 	for (int l = 0; l < INPUT_SIZE; l++) {
+
+#ifndef SINGLE_DEBUG
 		printf("RE:A[%d]=%10.2f\t\t\t, IM: A[%d]=%10.2f\t\t\t \n ", 2 * l, OUT[2 * l], 2 * l + 1, OUT[2 * l + 1]);
+#endif
 	}
 }
