@@ -11,11 +11,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\cufft\cufft_impl.cuh" />
-    <ClInclude Include="src\kernels\kernel_fft.cuh" />
-    <ClInclude Include="src\kernels\kernel_fft_new.cuh" />
-    <ClInclude Include="src\kernels\kernel_launcher.cuh" />
-    <ClInclude Include="src\kernels\kernel_launcher_new.cuh" />
+    <ClInclude Include="src\cufft_impl.cuh" />
+    <ClInclude Include="src\custom_fft_impl.cuh" />
+    <ClInclude Include="src\custom_fft_kernels.cuh" />
+    <ClInclude Include="src\fft_data.cuh" />
+    <ClInclude Include="src\older_kernels\kernel_fft.cuh" />
+    <ClInclude Include="src\older_kernels\kernel_fft_new.cuh" />
+    <ClInclude Include="src\older_kernels\kernel_launcher.cuh" />
+    <ClInclude Include="src\older_kernels\kernel_launcher_new.cuh" />
     <ClInclude Include="src\utils.cuh" />
     <ClInclude Include="vendor\gcem\include\gcem.hpp" />
     <ClInclude Include="vendor\gcem\include\gcem_incl\abs.hpp" />
@@ -82,7 +85,7 @@
     <ClInclude Include="vendor\gcem\include\gcem_incl\trunc.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\Entry.cpp" />
+    <CudaCompile Include="src\entry.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{767697B3-8B03-4A90-ADB1-768FE93BAE4C}</ProjectGuid>
