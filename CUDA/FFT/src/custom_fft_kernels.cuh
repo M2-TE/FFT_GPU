@@ -527,17 +527,30 @@ __device__ void fft_4096_point(float* S)
 }
 
 // core kernel
-__global__ void fft(float* IN, float* OUT)
+template <uint N> __global__ void fft(float* IN, float* OUT)
 {
-	__shared__ float S[4096 * 2];
+	__shared__ float S[N * 2];
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
-
-	__syncthreads();
-	fft_4096_point(S);
 	__syncthreads();
 
+	// god this is beautiful
+	if		constexpr (4096 == N) fft_4096_point(S);
+	else if constexpr (2048 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (1024 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr ( 512 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr ( 256 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr ( 128 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (  64 == N) fft_64_point(S);
+	else if constexpr (  32 == N) fft_32_point(S);
+	else if constexpr (  16 == N) fft_16_point(S);
+	else if constexpr (   8 == N) fft_8_point(S);
+	else if constexpr (   4 == N) fft_4_point(S);
+	else if constexpr (   2 == N) fft_2_point(S);
+	else static_assert(false, "Invalid FFT size for static kernel");
+	
 	// transfer from shared to global memory
+	__syncthreads();
 	mem_transfer(S, OUT);
 }
