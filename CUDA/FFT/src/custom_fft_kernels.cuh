@@ -6,23 +6,17 @@
 #include <math.h>
 #include <math_constants.h>
 
-typedef unsigned int uint;
-#define INPUT_SIZE 4096 // number of complex values
-#define INPUTS_PER_CHUNK 64
-#define THREADS_PER_CHUNK 8
-
-// TODO: constexpr
-#define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
-#define STEPPING_ALIASES const uint xStep = wordSize * 2; const uint yStep = fftSize * 2
-#define TEMPLATE_A template <uint scal>
-#define TEMPLATE_B template <uint nBits>
 #define FFT_SHUFFLING template <uint inputShuffleSize = 0, uint outputShuffleSize = 0>
+// TODO: constexpr?
+#define CONSTANT_ALIASES const uint nWordsPerChunk = 64;
+#define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
+#define STEPPING_ALIASES const uint xStep = nWords * 2; const uint yStep = nWordsPerChunk * 2
 
 // utils
 __device__ void debug_values(float* S)
 {
-	const uint wordSize = 4;
-	const uint fftSize = 64;
+	const uint nWords = 4;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -33,20 +27,20 @@ __device__ void debug_values(float* S)
 }
 __device__ void mem_transfer(float* src, float* dst)
 {
-	const uint wordSize = 8;
-	const uint fftSize = 64;
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
 	// TODO: make this read/write data in coalescence
 	uint index = idx * xStep + idy * yStep;
-	for (uint i = 0; i < wordSize * 2; i++) {
+	for (uint i = 0; i < nWords * 2; i++) {
 		dst[index + i] = src[index + i];
 	}
 }
 
 // bit reversal
-TEMPLATE_B __device__ uint reverse_bits(uint val)
+template <uint nBits> __device__ uint reverse_bits(uint val)
 {
 	// NOTE: standard bit reversal techniques either dont work on gpu
 	// or are just really unperformant, so i used the CUDA intrinsic __brev() instead
@@ -58,10 +52,10 @@ TEMPLATE_B __device__ uint reverse_bits(uint val)
 	//return __brev(val << (sizeof(uint) * 8 - nBits));
 	return __brev(val << (32 - nBits));
 }
-TEMPLATE_B __device__ void reverse_index_bits(float* S)
+template <uint nBits> __device__ void reverse_index_bits(float* S)
 {
-	constexpr uint wordSize = 8;
-	constexpr uint fftSize = 64;
+	constexpr uint nWords = 8;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -69,9 +63,9 @@ TEMPLATE_B __device__ void reverse_index_bits(float* S)
 	uint invertedMask = (0xff'ff'ff'ff >> (32 - (nBits + 1))) ^ 0xff'ff'ff'ff;
 
 	// need to store values in temp array before writing
-	float temps[wordSize * 2];
+	float temps[nWords * 2];
 	uint offset = idx * xStep + idy * yStep;
-	for (uint i = 0; i < wordSize * 2; i += 2) {
+	for (uint i = 0; i < nWords * 2; i += 2) {
 
 		// TODO: work in 0-63 space instead of 0-127?
 
@@ -95,7 +89,7 @@ TEMPLATE_B __device__ void reverse_index_bits(float* S)
 	__syncthreads();
 
 	// then write values using temp array
-	for (uint i = 0; i < wordSize * 2; i += 2) {
+	for (uint i = 0; i < nWords * 2; i += 2) {
 		uint index = offset + i;
 		S[index] = temps[i];
 		S[index + 1] = temps[i + 1];
@@ -103,53 +97,18 @@ TEMPLATE_B __device__ void reverse_index_bits(float* S)
 
 }
 
-// shuffling
-__device__ void shuffle_forward(float* S)
+// rotations
+template <uint size> __device__ void rotate_new(float* S)
 {
-	const uint wordSize = 8;
-	const uint fftSize = 64;
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
-
-	// need to store values in temp array before writing
-	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
-	float temps[wordSize * 2];
-	uint offset = idx * xStep + idy * yStep;
-	for (uint i = 0; i < wordSize * 2; i += 2) {
-
-		// shuffle index bits
-		uint index = offset + i;
-		uint upper = index & 0b0'111111'000000'0;
-		uint lower = index & 0b0'000000'111111'0;
-		index = (upper >> 6) | (lower << 6);
-
-		// write both real and imag parts to temp
-		temps[i] = S[index];
-		temps[i + 1] = S[index + 1];
-	}
-	__syncthreads();
-
-	// then write values using temp array
-	for (uint i = 0; i < wordSize * 2; i += 2) {
-		uint index = offset + i;
-		S[index] = temps[i];
-		S[index + 1] = temps[i + 1];
-	}
-}
-
-// rotations/ffts
-
-TEMPLATE_A __device__ void rotate_new(float* S)
-{
-	const uint fftSize = 64;
-	const uint wordSize = 8;
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-	const float scaling = 2.0f * CUDART_PI_F / (float)(scal); // rename templ
+	const float scaling = 2.0f * CUDART_PI_F / (float)(size);
 
 	uint offset = idx * xStep + idy * yStep;
 
-	for (uint i = 0; i < wordSize; i++) {
+	for (uint i = 0; i < nWords; i++) {
 
 		// can put in constant memory -> cache
 		float a = (float)idy;			// a = 0 -> 63
@@ -167,21 +126,21 @@ TEMPLATE_A __device__ void rotate_new(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
-TEMPLATE_A __device__ void rotate(float* S)
+template <uint size> __device__ void rotate(float* S)
 {
-	const uint fftSize = 64;
-	const uint wordSize = 8;
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
-	const float scaling = 2.0f * CUDART_PI_F / (float)(scal); // rename templ
+	const float scaling = 2.0f * CUDART_PI_F / (float)(size);
 
 	uint offset = idx * xStep + idy * yStep;
 
-	for (uint i = 0; i < wordSize; i++) {
+	for (uint i = 0; i < nWords; i++) {
 
 		// can put in constant memory -> cache
-		float a = (float)idx;	// a = 0 -> 63
-		float b = (float)i; 	// b = 0 -> 63
+		float a = (float)idx;
+		float b = (float)i;
 		float phi = a * b;
 
 		float ang = scaling * phi;
@@ -195,10 +154,46 @@ TEMPLATE_A __device__ void rotate(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
+
+// shuffling
+__device__ void shuffle_forward(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+
+	// need to store values in temp array before writing
+	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
+	float temps[nWords * 2];
+	uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords * 2; i += 2) {
+
+		// shuffle index bits
+		uint index = offset + i;
+		uint upper = index & 0b0'111111'000000'0;
+		uint lower = index & 0b0'000000'111111'0;
+		index = (upper >> 6) | (lower << 6);
+
+		// write both real and imag parts to temp
+		temps[i] = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+	__syncthreads();
+
+	// then write values using temp array
+	for (uint i = 0; i < nWords * 2; i += 2) {
+		uint index = offset + i;
+		S[index] = temps[i];
+		S[index + 1] = temps[i + 1];
+	}
+}
+
+// fft kernels
 FFT_SHUFFLING __device__ void fft_2_point(float* S)
 {
-	const uint wordSize = 2;
-	const uint fftSize = 64;
+	const uint nWords = 2;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -241,8 +236,8 @@ FFT_SHUFFLING __device__ void fft_2_point(float* S)
 }
 FFT_SHUFFLING __device__ void fft_4_point(float* S)
 {
-	const uint wordSize = 4;
-	const uint fftSize = 64;
+	const uint nWords = 4;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -309,8 +304,8 @@ FFT_SHUFFLING __device__ void fft_4_point(float* S)
 }
 FFT_SHUFFLING __device__ void fft_8_point(float* S)
 {
-	const uint wordSize = 8;
-	const uint fftSize = 64;
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
@@ -534,7 +529,7 @@ __device__ void fft_4096_point(float* S)
 // core kernel
 __global__ void fft(float* IN, float* OUT)
 {
-	__shared__ float S[INPUT_SIZE * 2];
+	__shared__ float S[4096 * 2];
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);

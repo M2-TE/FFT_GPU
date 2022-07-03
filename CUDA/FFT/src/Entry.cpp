@@ -12,12 +12,19 @@ int main()
 	static constexpr uint N = 4096; // N-point fft
 
 	FFTData data, cufftData;
-	data.init_a(N).upload();
-	cufftData.init_a(N).upload();
+	data.init_b(N, -1.0f, 1.0f);
+	cufftData = data;
 
-	//perform_custom_fft(data);
+	data.upload();
+	perform_custom_fft(data);
+	data.download();
+
+	cufftData.upload();
 	perform_cufft(cufftData);
+	cufftData.download();
 
-	data.download().print();
-	cufftData.download().print();
+	//data.print();
+	//cufftData.print();
+
+	FFTData::compare(data, cufftData);
 }

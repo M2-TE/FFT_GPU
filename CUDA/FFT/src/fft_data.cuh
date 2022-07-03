@@ -1,8 +1,11 @@
 #pragma once
 
 #include <vector>
-#include <iostream>
+#include <random>
 #include <sstream>
+#include <assert.h>
+#include <iostream>
+#include <math_constants.h>
 
 struct FFTComplex
 {
@@ -35,27 +38,36 @@ public:
 		return *this;
 	}
 
-	// TODO: random values
-	FFTData& init_b()
+	// random values between min and max
+	FFTData& init_b(size_t nSize, float min, float max)
 	{
 		if (bAllocated) deallocate();
+
+		std::random_device dev;
+		std::mt19937 rng(dev());
+		std::uniform_real_distribution<float> dist(min, max);
+
+		vals.resize(nSize);
+		for (size_t i = 0; i < nSize; i++)
+		{
+			vals[i] = { dist(rng), dist(rng) };
+		}
+
 		return *this;
 	}
 
-	// TODO: other
-	FFTData& init_c()
+	// sin/cos funcs
+	FFTData& init_c(size_t nSize)
 	{
 		if (bAllocated) deallocate();
 
-		//for (int i = 0; i < INPUT_SIZE; i++)
-		//{
-		//	// DEBUGGING for indexing
-		//	float real = (float)(cosf((2.0f * CUDART_PI_F * i) / 4096.0f));
-		//	float imag = (float)(sinf((2.0f * CUDART_PI_F * i) / 4096.0f));
-		//	float val = (float)(i);
-		//	IN[2 * i + 0] = val;
-		//	IN[2 * i + 1] = val;
-		//}
+		vals.resize(nSize);
+		for (size_t i = 0; i < nSize; i++)
+		{
+			float real = cosf((2.0f * asfloat(CUDART_PI_F) * asfloat(i)) / asfloat(nSize));
+			float imag = sinf((2.0f * asfloat(CUDART_PI_F) * asfloat(i)) / asfloat(nSize));
+			vals[i] = { real, imag };
+		}
 		return *this;
 	}
 
@@ -105,9 +117,30 @@ public:
 	}
 	
 	// compares host-side data per-component using given accuracy range
-	static bool compare(FFTData& a, FFTData& b, float accuracy)
+	static bool compare(FFTData& a, FFTData& b, float accuracy = 0.1f)
 	{
-		// TODO
+		assert(a.vals.size() == b.vals.size(), "sizes do not match");
+
+		float diffTotal = 0.0f;
+		float diffMax = 0.0f;
+
+
+		float* pA = reinterpret_cast<float*>(a.vals.data());
+		float* pB = reinterpret_cast<float*>(b.vals.data());
+
+		for (size_t i = 0; i < a.vals.size() * 2; i++, pA++, pB++) {
+			float diff = (*pA > *pB) ? (*pA - *pB) : (*pA - *pB);
+			diff = fabsf(diff);
+
+			diffTotal += diff;
+			diffMax = diffMax < diff ? diff : diffMax;
+		}
+
+		float diffAvg = diffTotal / asfloat(a.vals.size() * 2);
+		printf("Max difference: %.6f\n", diffMax);
+		printf("Avg difference: %.6f\n", diffAvg);
+
+		return diffMax <= accuracy;
 	}
 
 private:

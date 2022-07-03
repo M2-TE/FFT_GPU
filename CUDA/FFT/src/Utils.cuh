@@ -3,6 +3,8 @@
 
 typedef unsigned int uint;
 
+#define asfloat(x) static_cast<float>(x)
+
 // Gets rid of false flags with IntelliSense
 #ifdef __CUDACC__
 	#define KERNEL_GRID(grid, block) <<< grid, block >>>
