@@ -31,7 +31,7 @@ public:
 		vals.resize(nSize);
 		for (size_t i = 0; i < nSize; i++)
 		{
-			float value = static_cast<float>(i);
+			float value = static_cast<float>(i % 64);
 			vals[i] = { value, value };
 		}
 
@@ -78,13 +78,15 @@ public:
 	FFTData& upload()
 	{
 		if (!bAllocated) allocate();
-		cudaMemcpy(deviceData, vals.data(), sizeof(FFTComplex) * vals.size(), cudaMemcpyKind::cudaMemcpyHostToDevice);
+		auto error = cudaMemcpy(deviceData, vals.data(), sizeof(FFTComplex) * vals.size(), cudaMemcpyKind::cudaMemcpyHostToDevice);
+		if (error != cudaSuccess) printf("%s\n", cudaGetErrorString(error));
 		return *this;
 	}
 	// download data from device
 	FFTData& download()
 	{
-		cudaMemcpy(vals.data(), deviceData, sizeof(FFTComplex) * vals.size(), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+		auto error = cudaMemcpy(vals.data(), deviceData, sizeof(FFTComplex) * vals.size(), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+		if (error != cudaSuccess) printf("%s\n", cudaGetErrorString(error));
 		return *this;
 	}
 	// print all complex values in sequence

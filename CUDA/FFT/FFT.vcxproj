@@ -140,13 +140,13 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
-      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
       <CompileOut>$(CudaIntDirFullPath)\%(Filename)%(Extension).obj</CompileOut>
       <KeepDir>$(CudaIntDir)</KeepDir>
       <NvccCompilation>compile</NvccCompilation>
       <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
       <ExtensibleWholeProgramCompilation>false</ExtensibleWholeProgramCompilation>
-      <Keep>true</Keep>
+      <Keep>false</Keep>
       <FastMath>true</FastMath>
     </CudaCompile>
   </ItemDefinitionGroup>
@@ -172,9 +172,9 @@
       <Include>$(ProjectDir)src\;$(ProjectDir)vendor\;%(Include)</Include>
       <CompileOut>$(CudaIntDirFullPath)\%(Filename)%(Extension).obj</CompileOut>
       <KeepDir>$(CudaIntDir)</KeepDir>
-      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
       <NvccCompilation>compile</NvccCompilation>
-      <Keep>true</Keep>
+      <Keep>false</Keep>
       <FastMath>true</FastMath>
     </CudaCompile>
   </ItemDefinitionGroup>

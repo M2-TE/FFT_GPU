@@ -40,7 +40,7 @@ __device__ void mem_transfer(float* src, float* dst)
 }
 
 // bit reversal
-template <uint nBits> __device__ uint reverse_bits(uint val)
+template<uint nBits> __device__ uint reverse_bits(uint val)
 {
 	// NOTE: standard bit reversal techniques either dont work on gpu
 	// or are just really unperformant, so i used the CUDA intrinsic __brev() instead
@@ -52,7 +52,7 @@ template <uint nBits> __device__ uint reverse_bits(uint val)
 	//return __brev(val << (sizeof(uint) * 8 - nBits));
 	return __brev(val << (32 - nBits));
 }
-template <uint nBits> __device__ void reverse_index_bits(float* S)
+template<uint nBits> __device__ void reverse_index_bits(float* S)
 {
 	constexpr uint nWords = 8;
 	CONSTANT_ALIASES;
@@ -98,7 +98,7 @@ template <uint nBits> __device__ void reverse_index_bits(float* S)
 }
 
 // rotations
-template <uint size> __device__ void rotate_new(float* S)
+template<uint size> __device__ void rotate_new(float* S)
 {
 	const uint nWords = 8;
 	CONSTANT_ALIASES;
@@ -126,7 +126,7 @@ template <uint size> __device__ void rotate_new(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
-template <uint size> __device__ void rotate(float* S)
+template<uint size> __device__ void rotate(float* S)
 {
 	const uint nWords = 8;
 	CONSTANT_ALIASES;
@@ -135,7 +135,6 @@ template <uint size> __device__ void rotate(float* S)
 	const float scaling = 2.0f * CUDART_PI_F / (float)(size);
 
 	uint offset = idx * xStep + idy * yStep;
-
 	for (uint i = 0; i < nWords; i++) {
 
 		// can put in constant memory -> cache
@@ -156,37 +155,41 @@ template <uint size> __device__ void rotate(float* S)
 }
 
 // shuffling
-__device__ void shuffle_forward(float* S)
+template<uint nBitsUpper, uint nBitsLower> __device__ void shuffle(float* S)
 {
 	const uint nWords = 8;
 	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
+	const uint upperMask = ((1 << nBitsUpper) - 1) << (1 + nBitsLower);
+	const uint lowerMask = ((1 << nBitsLower) - 1) << 1;
+	const uint offset = idx * xStep + idy * yStep;
+
 	// need to store values in temp array before writing
 	// (not all threads write all their 8 values at once -> undefined behaviour otherwise)
 	float temps[nWords * 2];
-	uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords * 2; i += 2) {
+		uint index = offset + i;
+		temps[i] = S[index];
+		temps[i + 1] = S[index + 1];
+	}
+
+	__syncthreads();
+	// then write to shared memory
 	for (uint i = 0; i < nWords * 2; i += 2) {
 
 		// shuffle index bits
 		uint index = offset + i;
-		uint upper = index & 0b0'111111'000000'0;
-		uint lower = index & 0b0'000000'111111'0;
-		index = (upper >> 6) | (lower << 6);
-
+		uint upper = index & upperMask;
+		uint lower = index & lowerMask;
+		index = (upper >> nBitsLower) | (lower << nBitsUpper);
+		
 		// write both real and imag parts to temp
-		temps[i] = S[index];
-		temps[i + 1] = S[index + 1];
-	}
-	__syncthreads();
-
-	// then write values using temp array
-	for (uint i = 0; i < nWords * 2; i += 2) {
-		uint index = offset + i;
 		S[index] = temps[i];
 		S[index + 1] = temps[i + 1];
 	}
+
 }
 
 // fft kernels
@@ -224,8 +227,8 @@ FFT_SHUFFLING __device__ void fft_2_point(float* S)
 		const uint offsetI = offsetR + 1;
 		S[outputShuffleSize * 0 + offsetR] = x0;
 		S[outputShuffleSize * 0 + offsetI] = x1;
-		S[outputShuffleSize * 4 + offsetR] = x2;
-		S[outputShuffleSize * 4 + offsetI] = x3;
+		S[outputShuffleSize * 2 + offsetR] = x2;
+		S[outputShuffleSize * 2 + offsetI] = x3;
 	}
 	else {
 		S[idx * xStep + 0] = x0;
@@ -237,6 +240,7 @@ FFT_SHUFFLING __device__ void fft_2_point(float* S)
 FFT_SHUFFLING __device__ void fft_4_point(float* S)
 {
 	const uint nWords = 4;
+	//const uint nWordsPerChunk = 32;
 	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
@@ -281,16 +285,17 @@ FFT_SHUFFLING __device__ void fft_4_point(float* S)
 		const uint offsetI = offsetR + 1;
 		S[outputShuffleSize * 0 + offsetR] = x0 + x2;
 		S[outputShuffleSize * 0 + offsetI] = x1 + x3;
-		S[outputShuffleSize * 4 + offsetR] = x4 + x6;
-		S[outputShuffleSize * 4 + offsetI] = x5 + x7;
+		S[outputShuffleSize * 2 + offsetR] = x4 + x6;
+		S[outputShuffleSize * 2 + offsetI] = x5 + x7;
 
-		S[outputShuffleSize * 8 + offsetR] = x0 - x2;
-		S[outputShuffleSize * 8 + offsetI] = x1 - x3;
-		S[outputShuffleSize * 12 + offsetR] = x4 - x6;
-		S[outputShuffleSize * 12 + offsetI] = x5 - x7;
+		S[outputShuffleSize * 4 + offsetR] = x0 - x2;
+		S[outputShuffleSize * 4 + offsetI] = x1 - x3;
+		S[outputShuffleSize * 6 + offsetR] = x4 - x6;
+		S[outputShuffleSize * 6 + offsetI] = x5 - x7;
 	}
 	else {
 		const uint index = idx * xStep + idy * yStep;
+		printf("%d\n", index);
 		S[index + 0] = x0 + x2;
 		S[index + 1] = x1 + x3;
 		S[index + 2] = x4 + x6;
@@ -339,7 +344,7 @@ FFT_SHUFFLING __device__ void fft_8_point(float* S)
 			x15 = S[inputShuffleSize * 6 + offsetI] - S[inputShuffleSize * 14 + offsetI]; // I
 		}
 		else {
-			uint index = idx * xStep + idy * yStep;
+			const uint index = idx * xStep + idy * yStep;
 			x0 = S[index + 0] + S[index + 8]; // R
 			x1 = S[index + 1] + S[index + 9]; // I
 			x8 = S[index + 0] - S[index + 8]; // R
@@ -446,7 +451,7 @@ FFT_SHUFFLING __device__ void fft_8_point(float* S)
 			S[outputShuffleSize * 14 + offsetI] = x13 - x15;
 		}
 		else {
-			uint index = idx * xStep + idy * yStep;
+			const uint index = idx * xStep + idy * yStep;
 			S[index + 0] = x0 + x2;
 			S[index + 1] = x1 + x3;
 			S[index + 2] = x8 + x10;
@@ -478,10 +483,10 @@ __device__ void fft_16_point(float* S)
 	rotate<16>(S);
 
 	// input shuffle + second fft (4x 2-point) + output shuffle
-	fft_2_point<8, 4>(S + 0);
-	fft_2_point<8, 4>(S + 4);
-	fft_2_point<8, 4>(S + 8);
-	fft_2_point<8, 4>(S + 12);
+	fft_2_point<8, 8>(S + 0);
+	fft_2_point<8, 8>(S + 4);
+	fft_2_point<8, 8>(S + 8);
+	fft_2_point<8, 8>(S + 12);
 }
 __device__ void fft_32_point(float* S)
 {
@@ -492,8 +497,9 @@ __device__ void fft_32_point(float* S)
 	rotate<32>(S);
 
 	// input shuffle + second fft (2x 4-point) + output shuffle
-	fft_4_point<8, 4>(S + 0);
-	fft_4_point<8, 4>(S + 8);
+	uint offset = (threadIdx.x / 4) * 56;
+	fft_4_point<8, 8>(S + 0 + offset);
+	fft_4_point<8, 8>(S + 8 + offset);
 }
 __device__ void fft_64_point(float* S)
 {
@@ -506,9 +512,29 @@ __device__ void fft_64_point(float* S)
 	// input shuffle + second 8-point fft + output shuffle
 	fft_8_point<8, 8>(S);
 }
+
+__device__ void fft_2048_point(float* S)
+{
+	shuffle<6, 5>(S);
+
+	__syncthreads();
+	fft_64_point(S);
+
+	__syncthreads();
+	rotate_new<2048>(S);
+
+	__syncthreads();
+	shuffle<5, 6>(S);
+
+	__syncthreads();
+	fft_32_point(S);
+
+	__syncthreads();
+	shuffle<6, 5>(S);
+}
 __device__ void fft_4096_point(float* S)
 {
-	shuffle_forward(S);
+	shuffle<6, 6>(S);
 
 	__syncthreads();
 	fft_64_point(S);
@@ -517,13 +543,13 @@ __device__ void fft_4096_point(float* S)
 	rotate_new<4096>(S);
 
 	__syncthreads();
-	shuffle_forward(S);
+	shuffle<6, 6>(S);
 
 	__syncthreads();
 	fft_64_point(S);
 
 	__syncthreads();
-	shuffle_forward(S);
+	shuffle<6, 6>(S);
 }
 
 // core kernel
@@ -535,19 +561,21 @@ template <uint N> __global__ void fft(float* IN, float* OUT)
 	mem_transfer(IN, S);
 	__syncthreads();
 
-	// god this is beautiful
+	// god this is a beautiful hell
 	if		constexpr (4096 == N) fft_4096_point(S);
-	else if constexpr (2048 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (2048 == N) fft_2048_point(S);
 	else if constexpr (1024 == N) static_assert(false, "Invalid FFT size for static kernel");
-	else if constexpr ( 512 == N) static_assert(false, "Invalid FFT size for static kernel");
-	else if constexpr ( 256 == N) static_assert(false, "Invalid FFT size for static kernel");
-	else if constexpr ( 128 == N) static_assert(false, "Invalid FFT size for static kernel");
-	else if constexpr (  64 == N) fft_64_point(S);
-	else if constexpr (  32 == N) fft_32_point(S);
-	else if constexpr (  16 == N) fft_16_point(S);
-	else if constexpr (   8 == N) fft_8_point(S);
-	else if constexpr (   4 == N) fft_4_point(S);
-	else if constexpr (   2 == N) fft_2_point(S);
+	else if constexpr (512 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (256 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (128 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (64 == N) {
+		fft_32_point(S);
+	}
+	else if constexpr (32 == N) fft_32_point(S);
+	else if constexpr (16 == N) fft_16_point(S);
+	else if constexpr (8 == N) fft_8_point(S);
+	else if constexpr (4 == N) fft_4_point(S);
+	else if constexpr (2 == N) fft_2_point(S);
 	else static_assert(false, "Invalid FFT size for static kernel");
 	
 	// transfer from shared to global memory
