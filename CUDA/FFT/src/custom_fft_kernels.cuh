@@ -98,33 +98,6 @@ template<uint nBits> __device__ void reverse_index_bits(float* S)
 }
 
 // rotations
-template<uint size> __device__ void rotate(float* S)
-{
-	const uint nWords = 8;
-	CONSTANT_ALIASES;
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-	const float scaling = 2.0f * CUDART_PI_F / (float)(size);
-
-	uint offset = idx * xStep + idy * yStep;
-	for (uint i = 0; i < nWords; i++) {
-
-		// can put in constant memory -> cache
-		float a = (float)idx;
-		float b = (float)i;
-		float phi = a * b;
-
-		float ang = scaling * phi;
-		float c = cosf(ang);
-		float s = sinf(ang);
-
-		uint index = i * 2 + offset;
-		float real = S[index];
-		float imag = S[index + 1];
-		S[index] = c * real + s * imag;
-		S[index + 1] = c * imag - s * real;
-	}
-}
 __device__ void rotate_16(float* S)
 {
 	const uint nWords = 8;
@@ -179,7 +152,33 @@ __device__ void rotate_32(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
+__device__ void rotate_64(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2.0f * CUDART_PI_F / (float)64;
 
+	uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords; i++) {
+
+		// can put in constant memory -> cache
+		float a = (float)idx;
+		float b = (float)i;
+		float phi = a * b;
+
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = i * 2 + offset;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index] = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
 __device__ void rotate_128(float* S)
 {
 	const uint nWords = 8;
@@ -662,7 +661,6 @@ FFT_SHUFFLING __device__ void fft_8_point(float* S, uint shuffleOffset = 0u)
 		}
 	}
 }
-
 __device__ void fft_16_point(float* S)
 {
 	uint offset = (threadIdx.x / 2) * (32 - 4);
@@ -699,13 +697,12 @@ __device__ void fft_64_point(float* S)
 	fft_8_point<8, false>(S);
 
 	// single rotation for each value
-	rotate<64>(S);
+	rotate_64(S);
 
 	// input shuffle + second 8-point fft + output shuffle
 	fft_8_point<8, 8>(S);
 }
-
-// TODO: manual shuffling on the 2/4/8 variants? prolly requires extra sync steps
+// TODO: manual shuffling on the 2/4/8 variants inside 128/256/512? prolly requires extra sync steps, but with added performance
 __device__ void fft_128_point(float* S)
 {
 	shuffle<6, 1>(S);
@@ -767,7 +764,7 @@ __device__ void fft_512_point(float* S)
 	__syncthreads();
 	shuffle<6, 3>(S);
 }
-
+//
 __device__ void fft_1024_point(float* S)
 {
 	shuffle<6, 4>(S);

@@ -32,14 +32,11 @@ public:
 		for (size_t i = 0; i < nSize; i++)
 		{
 			float value = static_cast<float>(i);
-			//float value = static_cast<float>(i - 16);
-			//if (i < 16) value = 0;
 			vals[i] = { value, value };
 		}
 
 		return *this;
 	}
-
 	// random values between min and max
 	FFTData& init_b(size_t nSize, float min, float max)
 	{
@@ -57,8 +54,7 @@ public:
 
 		return *this;
 	}
-
-	// sin/cos funcs
+	// sin/cos
 	FFTData& init_c(size_t nSize)
 	{
 		if (bAllocated) deallocate();
@@ -72,7 +68,6 @@ public:
 		}
 		return *this;
 	}
-
 
 public:
 	inline size_t size() { return vals.size(); }
