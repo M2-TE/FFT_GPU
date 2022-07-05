@@ -97,35 +97,7 @@ template<uint nBits> __device__ void reverse_index_bits(float* S)
 
 }
 
-// rotations (TODO: rename + generalize)
-template<uint size> __device__ void rotate_new(float* S)
-{
-	const uint nWords = 8;
-	CONSTANT_ALIASES;
-	INDEXING_ALIASES;
-	STEPPING_ALIASES;
-	const float scaling = 2.0f * CUDART_PI_F / (float)(size);
-
-	uint offset = idx * xStep + idy * yStep;
-
-	for (uint i = 0; i < nWords; i++) {
-
-		// can put in constant memory -> cache
-		float a = (float)idy;			// a = 0 -> 63
-		float b = (float)i + idx * 8; 	// b = 0 -> 63
-		float phi = a * b;
-
-		float ang = scaling * phi;
-		float c = cosf(ang);
-		float s = sinf(ang);
-
-		uint index = i * 2 + offset;
-		float real = S[index];
-		float imag = S[index + 1];
-		S[index] = c * real + s * imag;
-		S[index + 1] = c * imag - s * real;
-	}
-}
+// rotations
 template<uint size> __device__ void rotate(float* S)
 {
 	const uint nWords = 8;
@@ -139,6 +111,33 @@ template<uint size> __device__ void rotate(float* S)
 
 		// can put in constant memory -> cache
 		float a = (float)idx;
+		float b = (float)i;
+		float phi = a * b;
+
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = i * 2 + offset;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index] = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
+__device__ void rotate_16(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2.0f * CUDART_PI_F / (float)16;
+
+	uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords; i++) {
+
+		// can put in constant memory -> cache
+		float a = (float)(idx % 2);
 		float b = (float)i;
 		float phi = a * b;
 
@@ -180,6 +179,33 @@ __device__ void rotate_32(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
+__device__ void rotate_1024(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2.0f * CUDART_PI_F / (float)1024;
+
+	const uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords; i++) {
+
+		// can put in constant memory -> cache
+		float a = (float)idy;			// a = 0 -> 32
+		float b = (float)i + idx * 8; 	// b = 0 -> 63
+		float phi = a * b;
+
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = i * 2 + offset;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index] = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
 __device__ void rotate_2048(float* S)
 {
 	const uint nWords = 8;
@@ -187,6 +213,33 @@ __device__ void rotate_2048(float* S)
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 	const float scaling = 2.0f * CUDART_PI_F / (float)2048;
+
+	const uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords; i++) {
+
+		// can put in constant memory -> cache
+		float a = (float)idy;			// a = 0 -> 32
+		float b = (float)i + idx * 8; 	// b = 0 -> 63
+		float phi = a * b;
+
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = i * 2 + offset;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index] = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
+__device__ void rotate_4096(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2.0f * CUDART_PI_F / (float)4096;
 
 	const uint offset = idx * xStep + idy * yStep;
 	for (uint i = 0; i < nWords; i++) {
@@ -535,7 +588,7 @@ __device__ void fft_16_point(float* S)
 	fft_8_point<2, false>(S, offset);
 
 	// single rotation for each value
-	rotate<16>(S);
+	rotate_16(S);
 
 	// input shuffle + second fft (4x 2-point) + output shuffle
 	fft_2_point<8, 8>(S, offset + 0);
@@ -569,6 +622,25 @@ __device__ void fft_64_point(float* S)
 	fft_8_point<8, 8>(S);
 }
 
+__device__ void fft_1024_point(float* S)
+{
+	shuffle<6, 4>(S);
+
+	__syncthreads();
+	fft_64_point(S);
+
+	__syncthreads();
+	rotate_1024(S);
+
+	__syncthreads();
+	shuffle<4, 6>(S);
+
+	__syncthreads();
+	fft_16_point(S);
+
+	__syncthreads();
+	shuffle<6, 4>(S);
+}
 __device__ void fft_2048_point(float* S)
 {
 	shuffle<6, 5>(S);
@@ -596,7 +668,7 @@ __device__ void fft_4096_point(float* S)
 	fft_64_point(S);
 
 	__syncthreads();
-	rotate_new<4096>(S);
+	rotate_4096(S);
 
 	__syncthreads();
 	shuffle<6, 6>(S);
@@ -615,21 +687,17 @@ template <uint N> __global__ void fft(float* IN, float* OUT)
 
 	// transfer from global to shared memory
 	mem_transfer(IN, S);
-	__syncthreads();
+	if constexpr (N > 64) __syncthreads();
 
 	// god this is a beautiful hell
 	if		constexpr (4096 == N) fft_4096_point(S);
 	else if constexpr (2048 == N) fft_2048_point(S);
-	else if constexpr (1024 == N) static_assert(false, "Invalid FFT size for static kernel");
+	else if constexpr (1024 == N) fft_1024_point(S);
 	else if constexpr (512 == N) static_assert(false, "Invalid FFT size for static kernel");
 	else if constexpr (256 == N) static_assert(false, "Invalid FFT size for static kernel");
 	else if constexpr (128 == N) static_assert(false, "Invalid FFT size for static kernel");
-	else if constexpr (64 == N) {
-		fft_64_point(S);
-	}
-	else if constexpr (32 == N) {
-		fft_32_point(S);
-	}
+	else if constexpr (64 == N) fft_64_point(S);
+	else if constexpr (32 == N) fft_32_point(S);
 	else if constexpr (16 == N) fft_16_point(S);
 	else if constexpr (8 == N) fft_8_point(S);
 	else if constexpr (4 == N) fft_4_point(S);
@@ -637,6 +705,6 @@ template <uint N> __global__ void fft(float* IN, float* OUT)
 	else static_assert(false, "Invalid FFT size for static kernel");
 	
 	// transfer from shared to global memory
-	__syncthreads();
+	if constexpr (N > 64) __syncthreads();
 	mem_transfer(S, OUT);
 }

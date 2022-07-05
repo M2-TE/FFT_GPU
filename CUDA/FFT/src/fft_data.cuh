@@ -33,7 +33,7 @@ public:
 		{
 			float value = static_cast<float>(i);
 			//float value = static_cast<float>(i - 16);
-			//if (i < 32) value = 0;
+			//if (i < 16) value = 0;
 			vals[i] = { value, value };
 		}
 
