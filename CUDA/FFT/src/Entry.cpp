@@ -9,7 +9,7 @@
 
 int main()
 {
-	static constexpr uint N = 1024; // N-point fft
+	static constexpr uint N = 128; // N-point fft
 
 	FFTData data, cufftData;
 	data.init_a(N);
