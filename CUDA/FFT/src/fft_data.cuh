@@ -31,7 +31,9 @@ public:
 		vals.resize(nSize);
 		for (size_t i = 0; i < nSize; i++)
 		{
-			float value = static_cast<float>(i % 64);
+			float value = static_cast<float>(i);
+			//float value = static_cast<float>(i - 16);
+			//if (i < 32) value = 0;
 			vals[i] = { value, value };
 		}
 

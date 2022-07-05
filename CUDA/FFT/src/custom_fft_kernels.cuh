@@ -97,7 +97,7 @@ template<uint nBits> __device__ void reverse_index_bits(float* S)
 
 }
 
-// rotations
+// rotations (TODO: rename + generalize)
 template<uint size> __device__ void rotate_new(float* S)
 {
 	const uint nWords = 8;
@@ -153,6 +153,60 @@ template<uint size> __device__ void rotate(float* S)
 		S[index + 1] = c * imag - s * real;
 	}
 }
+__device__ void rotate_32(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2.0f * CUDART_PI_F / (float)32;
+
+	uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords; i++) {
+
+		// can put in constant memory -> cache
+		float a = (float)(idx % 4);
+		float b = (float)i;
+		float phi = a * b;
+
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = i * 2 + offset;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index] = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
+__device__ void rotate_2048(float* S)
+{
+	const uint nWords = 8;
+	CONSTANT_ALIASES;
+	INDEXING_ALIASES;
+	STEPPING_ALIASES;
+	const float scaling = 2.0f * CUDART_PI_F / (float)2048;
+
+	const uint offset = idx * xStep + idy * yStep;
+	for (uint i = 0; i < nWords; i++) {
+
+		// can put in constant memory -> cache
+		float a = (float)idy;			// a = 0 -> 32
+		float b = (float)i + idx * 8; 	// b = 0 -> 63
+		float phi = a * b;
+
+		float ang = scaling * phi;
+		float c = cosf(ang);
+		float s = sinf(ang);
+
+		uint index = i * 2 + offset;
+		float real = S[index];
+		float imag = S[index + 1];
+		S[index] = c * real + s * imag;
+		S[index + 1] = c * imag - s * real;
+	}
+}
 
 // shuffling
 template<uint nBitsUpper, uint nBitsLower> __device__ void shuffle(float* S)
@@ -184,16 +238,15 @@ template<uint nBitsUpper, uint nBitsLower> __device__ void shuffle(float* S)
 		uint upper = index & upperMask;
 		uint lower = index & lowerMask;
 		index = (upper >> nBitsLower) | (lower << nBitsUpper);
-		
+
 		// write both real and imag parts to temp
 		S[index] = temps[i];
 		S[index + 1] = temps[i + 1];
 	}
-
 }
 
 // fft kernels
-FFT_SHUFFLING __device__ void fft_2_point(float* S)
+FFT_SHUFFLING __device__ void fft_2_point(float* S, uint shuffleOffset = 0u)
 {
 	const uint nWords = 2;
 	CONSTANT_ALIASES;
@@ -206,7 +259,7 @@ FFT_SHUFFLING __device__ void fft_2_point(float* S)
 	// stage 1
 	// butterflies
 	if constexpr (inputShuffleSize) {
-		const uint offsetR = idx * 2 + idy * yStep;
+		const uint offsetR = idx * 2 + idy * yStep + shuffleOffset;
 		const uint offsetI = offsetR + 1;
 		x0 = S[inputShuffleSize * 0 + offsetR] + S[inputShuffleSize * 2 + offsetR]; // R
 		x1 = S[inputShuffleSize * 0 + offsetI] + S[inputShuffleSize * 2 + offsetI]; // I
@@ -223,7 +276,7 @@ FFT_SHUFFLING __device__ void fft_2_point(float* S)
 
 	// output only
 	if constexpr (outputShuffleSize) {
-		const uint offsetR = idx * 2 + idy * yStep;
+		const uint offsetR = idx * 2 + idy * yStep + shuffleOffset;
 		const uint offsetI = offsetR + 1;
 		S[outputShuffleSize * 0 + offsetR] = x0;
 		S[outputShuffleSize * 0 + offsetI] = x1;
@@ -237,7 +290,7 @@ FFT_SHUFFLING __device__ void fft_2_point(float* S)
 		S[idx * xStep + 3] = x3;
 	}
 }
-FFT_SHUFFLING __device__ void fft_4_point(float* S)
+FFT_SHUFFLING __device__ void fft_4_point(float* S, uint shuffleOffset = 0u)
 {
 	const uint nWords = 4;
 	//const uint nWordsPerChunk = 32;
@@ -252,7 +305,7 @@ FFT_SHUFFLING __device__ void fft_4_point(float* S)
 	// butterflies + rotations
 	if constexpr (inputShuffleSize) {
 
-		const uint offsetR = idx * 2 + idy * yStep;
+		const uint offsetR = idx * 2 + idy * yStep + shuffleOffset;
 		const uint offsetI = offsetR + 1;
 		x0 = S[inputShuffleSize * 0 + offsetR] + S[inputShuffleSize * 4 + offsetR]; // R
 		x1 = S[inputShuffleSize * 0 + offsetI] + S[inputShuffleSize * 4 + offsetI]; // I
@@ -281,7 +334,7 @@ FFT_SHUFFLING __device__ void fft_4_point(float* S)
 	// butterflies + bit reversal
 	if constexpr (outputShuffleSize) {
 
-		const uint offsetR = idx * 2 + idy * yStep;
+		const uint offsetR = idx * 2 + idy * yStep + shuffleOffset;
 		const uint offsetI = offsetR + 1;
 		S[outputShuffleSize * 0 + offsetR] = x0 + x2;
 		S[outputShuffleSize * 0 + offsetI] = x1 + x3;
@@ -307,7 +360,7 @@ FFT_SHUFFLING __device__ void fft_4_point(float* S)
 		S[index + 7] = x5 - x7;
 	}
 }
-FFT_SHUFFLING __device__ void fft_8_point(float* S)
+FFT_SHUFFLING __device__ void fft_8_point(float* S, uint shuffleOffset = 0u)
 {
 	const uint nWords = 8;
 	CONSTANT_ALIASES;
@@ -321,7 +374,7 @@ FFT_SHUFFLING __device__ void fft_8_point(float* S)
 	{
 		// butterflies
 		if constexpr (inputShuffleSize) {
-			const uint offsetR = idx * 2 + idy * yStep;
+			const uint offsetR = idx * 2 + idy * yStep + shuffleOffset;
 			const uint offsetI = offsetR + 1;
 			x0 = S[inputShuffleSize * 0 + offsetR] + S[inputShuffleSize * 8 + offsetR]; // R
 			x1 = S[inputShuffleSize * 0 + offsetI] + S[inputShuffleSize * 8 + offsetI]; // I
@@ -427,7 +480,7 @@ FFT_SHUFFLING __device__ void fft_8_point(float* S)
 	{
 		// butterflies (with bit reversal)
 		if constexpr (outputShuffleSize) {
-			const uint offsetR = idx * 2 + idy * yStep;
+			const uint offsetR = idx * 2 + idy * yStep + shuffleOffset;
 			const uint offsetI = offsetR + 1;
 
 			S[outputShuffleSize * 0 + offsetR] = x0 + x2;
@@ -476,30 +529,33 @@ FFT_SHUFFLING __device__ void fft_8_point(float* S)
 }
 __device__ void fft_16_point(float* S)
 {
+	uint offset = (threadIdx.x / 2) * (32 - 4);
+
 	// input shuffle + first 8-point fft
-	fft_8_point<2, false>(S);
+	fft_8_point<2, false>(S, offset);
 
 	// single rotation for each value
 	rotate<16>(S);
 
 	// input shuffle + second fft (4x 2-point) + output shuffle
-	fft_2_point<8, 8>(S + 0);
-	fft_2_point<8, 8>(S + 4);
-	fft_2_point<8, 8>(S + 8);
-	fft_2_point<8, 8>(S + 12);
+	fft_2_point<8, 8>(S, offset + 0);
+	fft_2_point<8, 8>(S, offset + 4);
+	fft_2_point<8, 8>(S, offset + 8);
+	fft_2_point<8, 8>(S, offset + 12);
 }
 __device__ void fft_32_point(float* S)
 {
+	uint offset = (threadIdx.x / 4) * (64 - 8);
+
 	// input shuffle + first 8-point fft
-	fft_8_point<4, false>(S);
+	fft_8_point<4, false>(S, offset);
 
 	// single rotation for each value
-	rotate<32>(S);
+	rotate_32(S);
 
 	// input shuffle + second fft (2x 4-point) + output shuffle
-	uint offset = (threadIdx.x / 4) * 56;
-	fft_4_point<8, 8>(S + 0 + offset);
-	fft_4_point<8, 8>(S + 8 + offset);
+	fft_4_point<8, 8>(S, offset);
+	fft_4_point<8, 8>(S, offset + 8);
 }
 __device__ void fft_64_point(float* S)
 {
@@ -521,7 +577,7 @@ __device__ void fft_2048_point(float* S)
 	fft_64_point(S);
 
 	__syncthreads();
-	rotate_new<2048>(S);
+	rotate_2048(S);
 
 	__syncthreads();
 	shuffle<5, 6>(S);
@@ -569,9 +625,11 @@ template <uint N> __global__ void fft(float* IN, float* OUT)
 	else if constexpr (256 == N) static_assert(false, "Invalid FFT size for static kernel");
 	else if constexpr (128 == N) static_assert(false, "Invalid FFT size for static kernel");
 	else if constexpr (64 == N) {
+		fft_64_point(S);
+	}
+	else if constexpr (32 == N) {
 		fft_32_point(S);
 	}
-	else if constexpr (32 == N) fft_32_point(S);
 	else if constexpr (16 == N) fft_16_point(S);
 	else if constexpr (8 == N) fft_8_point(S);
 	else if constexpr (4 == N) fft_4_point(S);
