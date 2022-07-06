@@ -9,7 +9,6 @@ template<uint N> void perform_custom_fft(FFTData& data)
 	uint nY = std::max<uint>(N / 64u, 1u);
 	dim3 gridDim(1, 1, 1);
 	dim3 blockDim(nX, nY, 1);
-	//dim3 blockDim(8, 1, 1);
 
 	printf("Launched kernel with x: %d, y: %d\n", blockDim.x, blockDim.y);
 	fft<N> KERNEL_GRID(gridDim, blockDim)(data.deviceData, data.deviceData);

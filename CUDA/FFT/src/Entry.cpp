@@ -10,16 +10,18 @@
 int main()
 {
 	static constexpr uint N = 4096; // N-point fft
-
 	FFTData data, cufftData;
 	data.init_a(N);
 	//data.init_b(N, -1.0f, 1.0f);
+	//data.init_c(N);
 	cufftData = data;
 
+	// custom fft
 	data.upload();
 	perform_custom_fft<N>(data);
 	data.download();
 
+	// cuFFT
 	cufftData.upload();
 	perform_cufft(cufftData);
 	cufftData.download();

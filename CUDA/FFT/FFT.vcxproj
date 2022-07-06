@@ -147,7 +147,7 @@
       <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
       <ExtensibleWholeProgramCompilation>false</ExtensibleWholeProgramCompilation>
       <Keep>false</Keep>
-      <FastMath>true</FastMath>
+      <FastMath>false</FastMath>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -175,7 +175,7 @@
       <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
       <NvccCompilation>compile</NvccCompilation>
       <Keep>false</Keep>
-      <FastMath>true</FastMath>
+      <FastMath>false</FastMath>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
