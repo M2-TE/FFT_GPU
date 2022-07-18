@@ -12,6 +12,37 @@ typedef unsigned int uint;
 	#define KERNEL_GRID(grid, block)
 #endif
 
+struct Timer
+{
+	Timer()
+	{
+		cudaEventCreate(&_start);
+		cudaEventCreate(&_stop);
+		cudaEventRecord(_start);
+	}
+	~Timer()
+	{
+		cudaEventDestroy(_start);
+		cudaEventDestroy(_stop);
+	}
+
+	inline float evaluate()
+	{
+		cudaEventRecord(_stop);
+		cudaEventSynchronize(_stop);
+		float milliseconds = 0;
+		cudaEventElapsedTime(&milliseconds, _start, _stop);
+		return milliseconds;
+	}
+	inline void eval_print()
+	{
+		printf("%.3f\n", evaluate());
+	}
+
+private:
+	cudaEvent_t _start, _stop;
+};
+
 void PrintDeviceInfo()
 {
 	int nDevices;

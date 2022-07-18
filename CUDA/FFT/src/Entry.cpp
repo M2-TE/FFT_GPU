@@ -7,44 +7,48 @@
 #include "cufft_impl.cuh"
 #include "custom_fft_impl.cuh"
 
+
+
 int main()
 {
-	static constexpr uint N = 64; // N-point fft
+	static constexpr uint N = 4096; // N-point fft
+
 	FFTData<float> data, cufftData;
 	FFTData<double> cufftDataDouble;
 	cufftDataDouble.init(N, InitType::eGradient);
 	data = cufftData = cufftDataDouble;
 
+	data.upload();
+	cufftData.upload();
+	cufftDataDouble.upload();
+
 	// custom fft
-	{
-		data.upload();
-		perform_custom_fft<N>(data);
-		data.download();
-	}
+	perform_custom_fft<N>(data);
 
 	// cuFFT
-	{
-		cufftData.upload();
-		perform_cufft(cufftData);
-		cufftData.download();
-	}
+	perform_cufft(cufftData);
 
 	// cuFFT double
+	perform_cufft_double(cufftDataDouble);
+
+	// output prints
+	if (false)
 	{
-		cufftDataDouble.upload();
-		perform_cufft_double(cufftDataDouble);
-		cufftDataDouble.download();
+		data.download().print();
+		cufftData.download().print();
+		cufftDataDouble.download().print();
 	}
 
-	//data.print();
-	//cufftData.print();
+	// comparisons
+	if (false)
+	{
+		printf("\ncustom vs cuFFT:\n");
+		compare_fft(data, cufftData);
 
-	printf("\ncustom vs cuFFT:\n");
-	compare_fft(data, cufftData);
+		printf("\ncustom vs cuFFT double precision:\n");
+		compare_fft(data, cufftDataDouble);
 
-	printf("\ncustom vs cuFFT double precision:\n");
-	compare_fft(data, cufftDataDouble);
-
-	printf("\ncuFFT vs cuFFT double precision:\n");
-	compare_fft(cufftData, cufftDataDouble);
+		printf("\ncuFFT vs cuFFT double precision:\n");
+		compare_fft(cufftData, cufftDataDouble);
+	}
 }
