@@ -156,7 +156,7 @@ private:
 	bool bAllocated = false;
 };
 
-// compares host-side data per-component using given accuracy range
+// compares host-side data per-component
 static void compare_fft(FFTData<float>& a, FFTData<float>& b)
 {
 	assert(a.vals.size() == b.vals.size(), "sizes do not match");
@@ -175,11 +175,11 @@ static void compare_fft(FFTData<float>& a, FFTData<float>& b)
 		diffMax = diffMax < diff ? diff : diffMax;
 	}
 
-	float diffAvg = diffTotal / asfloat(a.vals.size() * 2);
+	float diffAvg = diffTotal / (float)(a.vals.size() * 2);
 	printf("Max difference: %.6f\n", diffMax);
 	printf("Avg difference: %.6f\n", diffAvg);
 }
-// compares host-side data per-component using given accuracy range
+// compares host-side data per-component
 static void compare_fft(FFTData<float>& a, FFTData<double>& b)
 {
 	assert(a.vals.size() == b.vals.size(), "sizes do not match");
@@ -201,7 +201,7 @@ static void compare_fft(FFTData<float>& a, FFTData<double>& b)
 		diffMax = diffMax < diff ? diff : diffMax;
 	}
 
-	double diffAvg = diffTotal / asfloat(a.vals.size() * 2);
+	double diffAvg = diffTotal / (double)(a.vals.size() * 2);
 	printf("Max difference: %.6f\n", diffMax);
 	printf("Avg difference: %.6f\n", diffAvg);
 }

@@ -31,16 +31,20 @@ int main()
 	// cuFFT double
 	perform_cufft_double(cufftDataDouble);
 
+	data.download();
+	cufftData.download();
+	cufftDataDouble.download();
+
 	// output prints
 	if (false)
 	{
-		data.download().print();
-		cufftData.download().print();
-		cufftDataDouble.download().print();
+		data.print();
+		//cufftData.print();
+		//cufftDataDouble.print();
 	}
 
 	// comparisons
-	if (false)
+	if (true)
 	{
 		printf("\ncustom vs cuFFT:\n");
 		compare_fft(data, cufftData);

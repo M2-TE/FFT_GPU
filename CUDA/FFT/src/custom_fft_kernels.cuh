@@ -25,7 +25,7 @@ __device__ void debug_values(float* S)
 		printf("[Thread %d Value %d]\tReal: %f\t\tImag: %f\n", idx, i, S[index], S[index + 1]);
 	}
 }
-__device__ void mem_transfer(float* src, float* dst)
+__device__ void mem_transfer2(float* src, float* dst)
 {
 	const uint nWords = 8;
 	CONSTANT_ALIASES;
@@ -36,6 +36,17 @@ __device__ void mem_transfer(float* src, float* dst)
 	uint index = idx * xStep + idy * yStep;
 	for (uint i = 0; i < nWords * 2; i++) {
 		dst[index + i] = src[index + i];
+	}
+}
+__device__ void mem_transfer(float* src, float* dst)
+{
+	INDEXING_ALIASES;
+
+	uint step = blockDim.x * blockDim.y;
+	uint offset = idx + idy * 8;
+	for (uint i = 0; i < 16; i++) {
+		uint index = step * i + offset;
+		dst[index] = src[index];
 	}
 }
 

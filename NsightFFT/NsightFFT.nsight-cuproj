@@ -242,7 +242,6 @@
             "path": "112.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "113.nsight-cuprof-report"
         },
         {
@@ -258,7 +257,6 @@
             "path": "117.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "118.nsight-cuprof-report"
         },
         {
@@ -274,8 +272,30 @@
             "path": "122.nsight-cuprof-report"
         },
         {
-            "is_open": true,
             "path": "123.nsight-cuprof-report"
+        },
+        {
+            "path": "125.nsight-cuprof-report"
+        },
+        {
+            "path": "126.nsight-cuprof-report"
+        },
+        {
+            "path": "127.nsight-cuprof-report"
+        },
+        {
+            "path": "128.nsight-cuprof-report"
+        },
+        {
+            "path": "129.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "bad_coalescence.nsight-cuprof-report"
+        },
+        {
+            "is_open": true,
+            "path": "good_coalescence.nsight-cuprof-report"
         }
     ],
     "launcher": {
@@ -314,10 +334,10 @@
         "platform/win32/arguments": "",
         "platform/win32/autoconnect": true,
         "platform/win32/environment": "",
-        "platform/win32/executable": "M:/Repositories/FFT_GPU/CUDA/OLD_FFT/bin/Windows/Release/OLD_FFT.exe",
+        "platform/win32/executable": "M:/Repositories/FFT_GPU/CUDA/bin/Windows/Release/FFT.exe",
         "platform/win32/executable/history": [
-            "M:/Repositories/FFT_GPU/CUDA/OLD_FFT/bin/Windows/Release/OLD_FFT.exe",
-            "M:/Repositories/FFT_GPU/CUDA/bin/Windows/Release/FFT.exe"
+            "M:/Repositories/FFT_GPU/CUDA/bin/Windows/Release/FFT.exe",
+            "M:/Repositories/FFT_GPU/CUDA/OLD_FFT/bin/Windows/Release/OLD_FFT.exe"
         ],
         "platform/win32/workingdir": "",
         "platform/windows/device": "localhost"
