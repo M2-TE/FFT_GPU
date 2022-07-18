@@ -137,30 +137,6 @@ public:
 
 		return *this;
 	}
-	
-	// compares host-side data per-component using given accuracy range
-	static void compare(FFTData& a, FFTData& b)
-	{
-		assert(a.vals.size() == b.vals.size(), "sizes do not match");
-
-		T diffTotal = 0.0f;
-		T diffMax = 0.0f;
-
-		T* pA = reinterpret_cast<T*>(a.vals.data());
-		T* pB = reinterpret_cast<T*>(b.vals.data());
-
-		for (size_t i = 0; i < a.vals.size() * 2; i++, pA++, pB++) {
-			T diff = (*pA > *pB) ? (*pA - *pB) : (*pA - *pB);
-			diff = fabsf(diff);
-
-			diffTotal += diff;
-			diffMax = diffMax < diff ? diff : diffMax;
-		}
-
-		T diffAvg = diffTotal / asfloat(a.vals.size() * 2);
-		printf("Max difference: %.6f\n", diffMax);
-		printf("Avg difference: %.6f\n", diffAvg);
-	}
 
 private:
 	inline void allocate()
@@ -179,3 +155,53 @@ public:
 private:
 	bool bAllocated = false;
 };
+
+// compares host-side data per-component using given accuracy range
+static void compare_fft(FFTData<float>& a, FFTData<float>& b)
+{
+	assert(a.vals.size() == b.vals.size(), "sizes do not match");
+
+	float diffTotal = 0.0f;
+	float diffMax = 0.0f;
+
+	float* pA = reinterpret_cast<float*>(a.vals.data());
+	float* pB = reinterpret_cast<float*>(b.vals.data());
+
+	for (size_t i = 0; i < a.vals.size() * 2; i++, pA++, pB++) {
+		float diff = (*pA > *pB) ? (*pA - *pB) : (*pA - *pB);
+		diff = fabsf(diff);
+
+		diffTotal += diff;
+		diffMax = diffMax < diff ? diff : diffMax;
+	}
+
+	float diffAvg = diffTotal / asfloat(a.vals.size() * 2);
+	printf("Max difference: %.6f\n", diffMax);
+	printf("Avg difference: %.6f\n", diffAvg);
+}
+// compares host-side data per-component using given accuracy range
+static void compare_fft(FFTData<float>& a, FFTData<double>& b)
+{
+	assert(a.vals.size() == b.vals.size(), "sizes do not match");
+
+	double diffTotal = 0.0f;
+	double diffMax = 0.0f;
+
+	float* pA = reinterpret_cast<float*>(a.vals.data());
+	double* pB = reinterpret_cast<double*>(b.vals.data());
+
+	for (size_t i = 0; i < a.vals.size() * 2; i++, pA++, pB++) {
+		double diff = 
+			((double)*pA > *pB) ?
+			((double)*pA - *pB) : 
+			((double)*pA - *pB);
+		diff = abs(diff);
+
+		diffTotal += diff;
+		diffMax = diffMax < diff ? diff : diffMax;
+	}
+
+	double diffAvg = diffTotal / asfloat(a.vals.size() * 2);
+	printf("Max difference: %.6f\n", diffMax);
+	printf("Avg difference: %.6f\n", diffAvg);
+}

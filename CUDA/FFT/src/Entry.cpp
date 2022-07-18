@@ -10,28 +10,41 @@
 int main()
 {
 	static constexpr uint N = 64; // N-point fft
-	FFTData<float> data;
-	FFTData<double> cufftData;
-	cufftData.init(N, InitType::eGradient);
-	data = cufftData;
+	FFTData<float> data, cufftData;
+	FFTData<double> cufftDataDouble;
+	cufftDataDouble.init(N, InitType::eGradient);
+	data = cufftData = cufftDataDouble;
 
 	// custom fft
 	{
-		//data.upload();
-		//perform_custom_fft<N>(data);
-		//data.download();
+		data.upload();
+		perform_custom_fft<N>(data);
+		data.download();
 	}
 
 	// cuFFT
 	{
 		cufftData.upload();
-		//perform_cufft(cufftData);
-		perform_cufft_double(cufftData);
+		perform_cufft(cufftData);
 		cufftData.download();
 	}
 
-	//data.print();
-	cufftData.print();
+	// cuFFT double
+	{
+		cufftDataDouble.upload();
+		perform_cufft_double(cufftDataDouble);
+		cufftDataDouble.download();
+	}
 
-	//FFTData<float>::compare(data, cufftData);
+	//data.print();
+	//cufftData.print();
+
+	printf("\ncustom vs cuFFT:\n");
+	compare_fft(data, cufftData);
+
+	printf("\ncustom vs cuFFT double precision:\n");
+	compare_fft(data, cufftDataDouble);
+
+	printf("\ncuFFT vs cuFFT double precision:\n");
+	compare_fft(cufftData, cufftDataDouble);
 }
