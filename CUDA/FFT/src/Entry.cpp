@@ -9,25 +9,29 @@
 
 int main()
 {
-	static constexpr uint N = 4096; // N-point fft
-	FFTData data, cufftData;
-	data.init_a(N);
-	//data.init_b(N, -1.0f, 1.0f);
-	//data.init_c(N);
-	cufftData = data;
+	static constexpr uint N = 64; // N-point fft
+	FFTData<float> data;
+	FFTData<double> cufftData;
+	cufftData.init(N, InitType::eGradient);
+	data = cufftData;
 
 	// custom fft
-	data.upload();
-	perform_custom_fft<N>(data);
-	data.download();
+	{
+		//data.upload();
+		//perform_custom_fft<N>(data);
+		//data.download();
+	}
 
 	// cuFFT
-	cufftData.upload();
-	perform_cufft(cufftData);
-	cufftData.download();
+	{
+		cufftData.upload();
+		//perform_cufft(cufftData);
+		perform_cufft_double(cufftData);
+		cufftData.download();
+	}
 
-	data.print();
-	//cufftData.print();
+	//data.print();
+	cufftData.print();
 
-	FFTData::compare(data, cufftData);
+	//FFTData<float>::compare(data, cufftData);
 }

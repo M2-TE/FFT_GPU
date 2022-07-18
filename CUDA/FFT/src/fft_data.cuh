@@ -7,22 +7,45 @@
 #include <iostream>
 #include <math_constants.h>
 
-struct FFTComplex
+enum class InitType { eGradient, eRandom, eWave };
+template<typename T = float> struct FFTComplex
 {
-	float real;
-	float imag;
+	T real;
+	T imag;
 };
-
-class FFTData
+template<typename T = float> class FFTData
 {
 public:
 	FFTData() = default;
+	FFTData(size_t nSize, InitType type)
+	{
+		init(nSize, type);
+	}
+	FFTData(const FFTData<double>& other)
+	{
+		vals.resize(other.vals.size());
+		for (size_t i = 0; i < other.vals.size(); i++) {
+			vals[i].real = (T)other.vals[i].real;
+			vals[i].imag = (T)other.vals[i].imag;
+		}
+	}
 	~FFTData()
 	{
 		if (bAllocated) deallocate();
 	}
 
 public:
+	// init using given algorithm
+	FFTData& init(size_t nSize, InitType type)
+	{
+		switch (type) {
+			case InitType::eGradient: init_a(nSize); break;
+			case InitType::eRandom: init_b(nSize); break;
+			case InitType::eWave: init_c(nSize); break;
+		}
+
+		return *this;
+	}
 	// fill with values (real == imag) ranging from 0 to nSize (exclusive) in order
 	FFTData& init_a(size_t nSize)
 	{
@@ -31,20 +54,20 @@ public:
 		vals.resize(nSize);
 		for (size_t i = 0; i < nSize; i++)
 		{
-			float value = static_cast<float>(i);
+			T value = static_cast<T>(i);
 			vals[i] = { value, value };
 		}
 
 		return *this;
 	}
 	// random values between min and max
-	FFTData& init_b(size_t nSize, float min, float max)
+	FFTData& init_b(size_t nSize, float min = -1.0f, float max = 1.0f)
 	{
 		if (bAllocated) deallocate();
 
 		std::random_device dev;
 		std::mt19937 rng(dev());
-		std::uniform_real_distribution<float> dist(min, max);
+		std::uniform_real_distribution<T> dist(min, max);
 
 		vals.resize(nSize);
 		for (size_t i = 0; i < nSize; i++)
@@ -62,8 +85,8 @@ public:
 		vals.resize(nSize);
 		for (size_t i = 0; i < nSize; i++)
 		{
-			float real = cosf((2.0f * asfloat(CUDART_PI_F) * asfloat(i)) / asfloat(nSize));
-			float imag = sinf((2.0f * asfloat(CUDART_PI_F) * asfloat(i)) / asfloat(nSize));
+			T real = cos((((T)2) * ((T)CUDART_PI_F) * ((T)i)) / ((T)nSize));
+			T imag = sin((((T)2) * ((T)CUDART_PI_F) * ((T)i)) / ((T)nSize));
 			vals[i] = { real, imag };
 		}
 		return *this;
@@ -75,14 +98,14 @@ public:
 	FFTData& upload()
 	{
 		if (!bAllocated) allocate();
-		auto error = cudaMemcpy(deviceData, vals.data(), sizeof(FFTComplex) * vals.size(), cudaMemcpyKind::cudaMemcpyHostToDevice);
+		auto error = cudaMemcpy(deviceData, vals.data(), sizeof(FFTComplex<T>) * vals.size(), cudaMemcpyKind::cudaMemcpyHostToDevice);
 		if (error != cudaSuccess) printf("%s\n", cudaGetErrorString(error));
 		return *this;
 	}
 	// download data from device
 	FFTData& download()
 	{
-		auto error = cudaMemcpy(vals.data(), deviceData, sizeof(FFTComplex) * vals.size(), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+		auto error = cudaMemcpy(vals.data(), deviceData, sizeof(FFTComplex<T>) * vals.size(), cudaMemcpyKind::cudaMemcpyDeviceToHost);
 		if (error != cudaSuccess) printf("%s\n", cudaGetErrorString(error));
 		return *this;
 	}
@@ -116,36 +139,33 @@ public:
 	}
 	
 	// compares host-side data per-component using given accuracy range
-	static bool compare(FFTData& a, FFTData& b, float accuracy = 0.1f)
+	static void compare(FFTData& a, FFTData& b)
 	{
 		assert(a.vals.size() == b.vals.size(), "sizes do not match");
 
-		float diffTotal = 0.0f;
-		float diffMax = 0.0f;
+		T diffTotal = 0.0f;
+		T diffMax = 0.0f;
 
-
-		float* pA = reinterpret_cast<float*>(a.vals.data());
-		float* pB = reinterpret_cast<float*>(b.vals.data());
+		T* pA = reinterpret_cast<T*>(a.vals.data());
+		T* pB = reinterpret_cast<T*>(b.vals.data());
 
 		for (size_t i = 0; i < a.vals.size() * 2; i++, pA++, pB++) {
-			float diff = (*pA > *pB) ? (*pA - *pB) : (*pA - *pB);
+			T diff = (*pA > *pB) ? (*pA - *pB) : (*pA - *pB);
 			diff = fabsf(diff);
 
 			diffTotal += diff;
 			diffMax = diffMax < diff ? diff : diffMax;
 		}
 
-		float diffAvg = diffTotal / asfloat(a.vals.size() * 2);
+		T diffAvg = diffTotal / asfloat(a.vals.size() * 2);
 		printf("Max difference: %.6f\n", diffMax);
 		printf("Avg difference: %.6f\n", diffAvg);
-
-		return diffMax <= accuracy;
 	}
 
 private:
 	inline void allocate()
 	{
-		cudaMalloc((void**)&deviceData, sizeof(FFTComplex) * vals.size());
+		cudaMalloc((void**)&deviceData, sizeof(FFTComplex<T>) * vals.size());
 	}
 	inline void deallocate()
 	{
@@ -153,8 +173,9 @@ private:
 	}
 
 public:
-	std::vector<FFTComplex> vals;
-	float* deviceData = nullptr;
+	std::vector<FFTComplex<T>> vals;
+	T* deviceData = nullptr;
+
 private:
 	bool bAllocated = false;
 };
