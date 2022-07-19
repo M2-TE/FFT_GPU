@@ -17,11 +17,19 @@ template<typename T = float> class FFTData
 {
 public:
 	FFTData() = default;
-	FFTData(size_t nSize, InitType type)
+	FFTData(size_t nComplex, InitType type)
 	{
-		init(nSize, type);
+		init(nComplex, type);
 	}
 	FFTData(const FFTData<double>& other)
+	{
+		vals.resize(other.vals.size());
+		for (size_t i = 0; i < other.vals.size(); i++) {
+			vals[i].real = (T)other.vals[i].real;
+			vals[i].imag = (T)other.vals[i].imag;
+		}
+	}
+	FFTData(const FFTData<float>& other)
 	{
 		vals.resize(other.vals.size());
 		for (size_t i = 0; i < other.vals.size(); i++) {
@@ -36,23 +44,23 @@ public:
 
 public:
 	// init using given algorithm
-	FFTData& init(size_t nSize, InitType type)
+	FFTData& init(size_t nComplex, InitType type)
 	{
 		switch (type) {
-			case InitType::eGradient: init_a(nSize); break;
-			case InitType::eRandom: init_b(nSize); break;
-			case InitType::eWave: init_c(nSize); break;
+			case InitType::eGradient: init_a(nComplex); break;
+			case InitType::eRandom: init_b(nComplex); break;
+			case InitType::eWave: init_c(nComplex); break;
 		}
 
 		return *this;
 	}
-	// fill with values (real == imag) ranging from 0 to nSize (exclusive) in order
-	FFTData& init_a(size_t nSize)
+	// fill with values (real == imag) ranging from 0 to nComplex (exclusive) in order
+	FFTData& init_a(size_t nComplex)
 	{
 		if (bAllocated) deallocate();
 
-		vals.resize(nSize);
-		for (size_t i = 0; i < nSize; i++)
+		vals.resize(nComplex);
+		for (size_t i = 0; i < nComplex; i++)
 		{
 			T value = static_cast<T>(i);
 			vals[i] = { value, value };
@@ -61,7 +69,7 @@ public:
 		return *this;
 	}
 	// random values between min and max
-	FFTData& init_b(size_t nSize, float min = -1.0f, float max = 1.0f)
+	FFTData& init_b(size_t nComplex, float min = -1.0f, float max = 1.0f)
 	{
 		if (bAllocated) deallocate();
 
@@ -69,8 +77,8 @@ public:
 		std::mt19937 rng(dev());
 		std::uniform_real_distribution<T> dist(min, max);
 
-		vals.resize(nSize);
-		for (size_t i = 0; i < nSize; i++)
+		vals.resize(nComplex);
+		for (size_t i = 0; i < nComplex; i++)
 		{
 			vals[i] = { dist(rng), dist(rng) };
 		}
@@ -78,15 +86,15 @@ public:
 		return *this;
 	}
 	// sin/cos
-	FFTData& init_c(size_t nSize)
+	FFTData& init_c(size_t nComplex)
 	{
 		if (bAllocated) deallocate();
 
-		vals.resize(nSize);
-		for (size_t i = 0; i < nSize; i++)
+		vals.resize(nComplex);
+		for (size_t i = 0; i < nComplex; i++)
 		{
-			T real = cos((((T)2) * ((T)CUDART_PI_F) * ((T)i)) / ((T)nSize));
-			T imag = sin((((T)2) * ((T)CUDART_PI_F) * ((T)i)) / ((T)nSize));
+			T real = cos((((T)2) * ((T)CUDART_PI_F) * ((T)i)) / ((T)nComplex));
+			T imag = sin((((T)2) * ((T)CUDART_PI_F) * ((T)i)) / ((T)nComplex));
 			vals[i] = { real, imag };
 		}
 		return *this;

@@ -7,7 +7,6 @@
 #include <math_constants.h>
 
 #define FFT_SHUFFLING template <uint inputShuffleSize = 0, uint outputShuffleSize = 0>
-// TODO: constexpr?
 #define CONSTANT_ALIASES const uint nWordsPerChunk = 64;
 #define INDEXING_ALIASES const uint idx = threadIdx.x; const uint idy = threadIdx.y
 #define STEPPING_ALIASES const uint xStep = nWords * 2; const uint yStep = nWordsPerChunk * 2
@@ -25,14 +24,13 @@ __device__ void debug_values(float* S)
 		printf("[Thread %d Value %d]\tReal: %f\t\tImag: %f\n", idx, i, S[index], S[index + 1]);
 	}
 }
-__device__ void mem_transfer2(float* src, float* dst)
+__device__ void mem_transfer_bad_coalescence(float* src, float* dst)
 {
 	const uint nWords = 8;
 	CONSTANT_ALIASES;
 	INDEXING_ALIASES;
 	STEPPING_ALIASES;
 
-	// TODO: make this read/write data in coalescence
 	uint index = idx * xStep + idy * yStep;
 	for (uint i = 0; i < nWords * 2; i++) {
 		dst[index + i] = src[index + i];

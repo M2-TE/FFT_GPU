@@ -6,34 +6,49 @@
 #include "fft_data.cuh"
 #include "cufft_impl.cuh"
 #include "custom_fft_impl.cuh"
+#include "sqnr.cuh"
 
 
 
 int main()
 {
 	static constexpr uint N = 4096; // N-point fft
+	compare_sqnr(100);
+	return 0;
 
 	FFTData<float> data, cufftData;
 	FFTData<double> cufftDataDouble;
 	cufftDataDouble.init(N, InitType::eGradient);
 	data = cufftData = cufftDataDouble;
 
-	data.upload();
-	cufftData.upload();
-	cufftDataDouble.upload();
+	// host to device
+	if (false)
+	{
+		data.upload();
+		cufftData.upload();
+		cufftDataDouble.upload();
+	}
 
-	// custom fft
-	perform_custom_fft<N>(data);
+	// fft executions
+	if (false)
+	{
+		// custom fft
+		perform_custom_fft<N>(data);
 
-	// cuFFT
-	perform_cufft(cufftData);
+		// cuFFT
+		perform_cufft(cufftData);
 
-	// cuFFT double
-	perform_cufft_double(cufftDataDouble);
+		// cuFFT double
+		perform_cufft_double(cufftDataDouble);
+	}
 
-	data.download();
-	cufftData.download();
-	cufftDataDouble.download();
+	// device to host
+	if (false)
+	{
+		data.download();
+		cufftData.download();
+		cufftDataDouble.download();
+	}
 
 	// output prints
 	if (false)
@@ -44,7 +59,7 @@ int main()
 	}
 
 	// comparisons
-	if (true)
+	if (false)
 	{
 		printf("\ncustom vs cuFFT:\n");
 		compare_fft(data, cufftData);
